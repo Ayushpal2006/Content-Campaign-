@@ -5,7 +5,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
 <Layout title="Control Tower" activeTab="dashboard">
   <!-- Error Banner -->
-  <div id="dashboard-error" class="error-state" style="display: none; margin-bottom: 1.5rem;">
+  <div id="dashboard-error" class="error-state" style="display: none; margin-bottom: 1.25rem;">
     <div style="font-weight: 700; font-size: 0.95rem;">Unable to load dashboard data</div>
     <p id="dashboard-error-text" style="font-size: 0.8125rem; margin-top: 0.25rem;">Failed to communicate with operations backend.</p>
     <button class="btn btn-primary btn-sm" onclick="loadDashboardData()" style="margin-top: 0.5rem;">
@@ -20,15 +20,19 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       <div class="skeleton skeleton-metric"></div>
       <div class="skeleton skeleton-metric"></div>
       <div class="skeleton skeleton-metric"></div>
+      <div class="skeleton skeleton-metric"></div>
+      <div class="skeleton skeleton-metric"></div>
     </div>
-    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
-      <div class="card" style="padding: 1.5rem; height: 280px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; align-items: start;">
+      <div class="card" style="padding: 1.25rem; height: 320px;">
         <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-text"></div>
         <div class="skeleton skeleton-text"></div>
         <div class="skeleton skeleton-text"></div>
       </div>
-      <div class="card" style="padding: 1.5rem; height: 280px;">
+      <div class="card" style="padding: 1.25rem; height: 320px;">
         <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-text"></div>
         <div class="skeleton skeleton-text"></div>
       </div>
     </div>
@@ -42,14 +46,14 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
     </div>
 
     <!-- Empty State for KPIs -->
-    <div id="kpi-empty" class="empty-state" style="display: none; margin-bottom: 1.5rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
+    <div id="kpi-empty" class="empty-state" style="display: none; margin-bottom: 1.25rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
       <p style="font-size: 0.875rem; font-weight: 600;">No KPI metrics returned by backend.</p>
     </div>
 
     <!-- Dual Column Grid: Action Queue & Pipeline Breakdown -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.25rem; align-items: start;">
       <!-- Action Queue -->
-      <div class="card">
+      <div class="card" style="align-self: start;">
         <div class="card-header">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <div style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--brand-600);"></div>
@@ -58,11 +62,11 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           <span id="action-queue-count" class="chip chip-rose" style="font-size: 0.75rem;">0 Items</span>
         </div>
         <div class="card-body" style="padding: 0;">
-          <div id="action-queue-container" style="display: flex; flex-direction: column;">
+          <div id="action-queue-container" style="display: flex; flex-direction: column; max-height: 440px; overflow-y: auto;">
             <!-- Queue items -->
           </div>
           <div id="action-queue-empty" class="empty-state" style="padding: 2.5rem 1rem;">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-subtle);">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-subtle);">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
@@ -72,7 +76,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       </div>
 
       <!-- Pipeline / Stage Breakdown -->
-      <div class="card">
+      <div class="card" style="align-self: start;">
         <div class="card-header">
           <h2 class="card-title">Pipeline Breakdown</h2>
         </div>
@@ -104,24 +108,14 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       if (errorBox) errorBox.style.display = 'none';
 
       try {
-        // First try 'dashboard', fallback to 'bootstrap'
-        let res = await fetch('/api/infinity', {
+        const res = await fetch('/api/infinity', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'dashboard' })
         });
 
-        let data = await res.json().catch(() => ({}));
-
-        if (!res.ok || data.ok === false) {
-          // Attempt bootstrap action
-          res = await fetch('/api/infinity', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'bootstrap' })
-          });
-          data = await res.json().catch(() => ({}));
-        }
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok || data.ok === false) {
           throw new Error(data.error || 'Failed to fetch dashboard data');
@@ -147,65 +141,41 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
     function renderDashboard(raw) {
       const root = raw || {};
-      const data = root.data || root.result || root;
+      const data = root.result || root.data || root;
 
       // 1. Render KPIs
       const kpiGrid = document.getElementById('kpi-grid');
       const kpiEmpty = document.getElementById('kpi-empty');
       if (kpiGrid) {
         kpiGrid.innerHTML = '';
-
-        const candidateKeys = [
-          { key: 'plannedToday', label: 'Planned Today', badge: 'badge-blue', keys: ['plannedToday', 'planned_today', 'planned', 'today'] },
-          { key: 'editing', label: 'Editing', badge: 'badge-amber', keys: ['editing', 'in_editing', 'inEditing', 'editingCount'] },
-          { key: 'qcPending', label: 'QC Pending', badge: 'badge-purple', keys: ['qcPending', 'qc_pending', 'inQc', 'in_qc', 'qc'] },
-          { key: 'changes', label: 'Changes Requested', badge: 'badge-rose', keys: ['changes', 'changesRequested', 'changes_requested', 'revisions'] },
-          { key: 'approved', label: 'Approved', badge: 'badge-emerald', keys: ['approved', 'approvedCount', 'ready_upload'] },
-          { key: 'uploaded', label: 'Uploaded', badge: 'badge-emerald', keys: ['uploaded', 'uploadedCount', 'published', 'completed'] },
-          { key: 'overdue', label: 'Overdue', badge: 'badge-red', keys: ['overdue', 'overdueCount', 'delayed'] },
-          { key: 'blocked', label: 'Blocked', badge: 'badge-red', keys: ['blocked', 'blockedCount', 'stuck'] }
-        ];
-
-        const source = data.kpis || data.metrics || data.summary || data;
         let renderedCount = 0;
 
-        if (typeof source === 'object' && source !== null) {
-          for (const item of candidateKeys) {
-            let val;
-            for (const k of item.keys) {
-              if (source[k] !== undefined && source[k] !== null && source[k] !== '') {
-                val = source[k];
-                break;
-              }
-            }
+        const addMetricCard = (label, val, badgeClass) => {
+          if (val === undefined || val === null) return;
+          renderedCount++;
+          const card = document.createElement('div');
+          card.className = `metric-card ${badgeClass}`;
+          card.innerHTML = `
+            <div class="metric-label">${label}</div>
+            <div class="metric-value">${val}</div>
+          `;
+          kpiGrid.appendChild(card);
+        };
 
-            if (val !== undefined) {
-              renderedCount++;
-              const card = document.createElement('div');
-              card.className = `metric-card ${item.badge}`;
-              card.innerHTML = `
-                <div class="metric-label">${item.label}</div>
-                <div class="metric-value">${val}</div>
-              `;
-              kpiGrid.appendChild(card);
-            }
-          }
+        // Standard KPIs returned by backend
+        addMetricCard('Active Pipeline', data.totalActive, 'badge-rose');
+        addMetricCard('Planned Today', data.plannedToday, 'badge-blue');
+        addMetricCard('Overdue', data.overdue, 'badge-red');
+        addMetricCard('Blocked', data.blocked, 'badge-red');
 
-          // Custom array kpis if provided
-          if (Array.isArray(data.kpis)) {
-            data.kpis.forEach(k => {
-              if (k && typeof k === 'object' && k.label && k.value !== undefined) {
-                renderedCount++;
-                const card = document.createElement('div');
-                card.className = 'metric-card';
-                card.innerHTML = `
-                  <div class="metric-label">${k.label}</div>
-                  <div class="metric-value">${k.value}</div>
-                `;
-                kpiGrid.appendChild(card);
-              }
-            });
-          }
+        // By Status KPIs
+        const byStatus = data.byStatus || data.statusBreakdown || {};
+        if (typeof byStatus === 'object') {
+          if (byStatus['Editing'] !== undefined) addMetricCard('In Editing', byStatus['Editing'], 'badge-amber');
+          if (byStatus['QC Pending'] !== undefined) addMetricCard('QC Pending', byStatus['QC Pending'], 'badge-purple');
+          if (byStatus['Script Ready'] !== undefined) addMetricCard('Script Ready', byStatus['Script Ready'], 'badge-blue');
+          if (byStatus['Approved'] !== undefined) addMetricCard('Approved', byStatus['Approved'], 'badge-emerald');
+          if (byStatus['Unassigned'] !== undefined) addMetricCard('Unassigned', byStatus['Unassigned'], 'badge-rose');
         }
 
         if (kpiEmpty) {
@@ -218,7 +188,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       const queueEmpty = document.getElementById('action-queue-empty');
       const queueCount = document.getElementById('action-queue-count');
 
-      const rawQueue = data.actionQueue || data.action_queue || data.queue || data.urgentTasks || [];
+      const rawQueue = data.actionItems || data.actionQueue || data.urgentTasks || [];
 
       if (queueContainer) {
         queueContainer.innerHTML = '';
@@ -227,14 +197,19 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           if (queueCount) queueCount.textContent = `${rawQueue.length} Items`;
 
           rawQueue.forEach(item => {
-            const id = item.id || item.videoId || item.video_id || '—';
-            const title = item.title || item.topic || item.name || 'Untitled';
-            const type = item.type || item.reason || item.status || 'Action';
-            const editor = item.editor || item.assignedTo;
-            const due = item.due || item.dueDate || item.sla;
+            const id = item.videoId || item.id || '—';
+            let title = item.scriptPreview || item.title || item.topic || 'Untitled Video';
+            if (title.includes('\n')) {
+              title = title.split('\n')[0].trim();
+            }
+
+            const status = item.productionStatus || item.status || 'Action Required';
+            const sla = item.slaStatus || item.sla;
+            const editor = item.editor;
+            const due = item.dueAt || item.dueDate;
 
             const row = document.createElement('div');
-            row.style.cssText = 'padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background var(--trans-fast);';
+            row.style.cssText = 'padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background var(--trans-fast); gap: 0.75rem;';
             row.onmouseover = () => { row.style.background = 'var(--brand-50)'; };
             row.onmouseout = () => { row.style.background = 'transparent'; };
             row.onclick = () => {
@@ -244,17 +219,18 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
             };
 
             row.innerHTML = `
-              <div style="display: flex; flex-direction: column; gap: 2px;">
+              <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;">
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                  <span class="font-mono" style="font-size: 0.75rem; font-weight: 700; color: var(--brand-700);">${id}</span>
-                  <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main);">${title}</span>
+                  <span class="font-mono" style="font-size: 0.75rem; font-weight: 700; color: var(--brand-700); flex-shrink: 0;">${id}</span>
+                  <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${title}</span>
                 </div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 0.75rem;">
-                  ${editor ? `<span>Editor: ${editor}</span>` : ''}
+                <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                  ${editor ? `<span>Editor: <strong>${editor}</strong></span>` : '<span style="color: var(--brand-700);">Unassigned</span>'}
+                  ${sla ? `<span class="chip ${sla.toLowerCase().includes('overdue') ? 'chip-red' : 'chip-default'}" style="font-size: 0.6875rem; padding: 0.05rem 0.35rem;">${sla}</span>` : ''}
                   ${due ? `<span>Due: ${due}</span>` : ''}
                 </div>
               </div>
-              <span class="chip chip-rose" style="font-size: 0.75rem;">${type}</span>
+              <span class="chip ${status.toLowerCase().includes('qc') ? 'chip-purple' : status.toLowerCase().includes('editing') ? 'chip-amber' : 'chip-blue'}" style="font-size: 0.75rem; flex-shrink: 0;">${status}</span>
             `;
             queueContainer.appendChild(row);
           });
@@ -267,23 +243,14 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       // 3. Render Pipeline Stages
       const pipelineContainer = document.getElementById('pipeline-stages-container');
       const pipelineEmpty = document.getElementById('pipeline-empty');
-      const rawPipeline = data.pipeline || data.statusBreakdown || data.status_breakdown || data.stages;
+      const byStatus = data.byStatus || data.statusBreakdown || {};
 
       if (pipelineContainer) {
         pipelineContainer.innerHTML = '';
-        let stages = [];
-
-        if (Array.isArray(rawPipeline)) {
-          stages = rawPipeline.map(st => ({
-            stage: st.stage || st.status || st.name || 'Stage',
-            count: Number(st.count || st.total || st.value || 0)
-          }));
-        } else if (typeof rawPipeline === 'object' && rawPipeline !== null) {
-          stages = Object.entries(rawPipeline).map(([stage, count]) => ({
-            stage,
-            count: Number(count || 0)
-          }));
-        }
+        const stages = Object.entries(byStatus).map(([stage, count]) => ({
+          stage,
+          count: Number(count || 0)
+        }));
 
         if (stages.length > 0) {
           if (pipelineEmpty) pipelineEmpty.style.display = 'none';
@@ -296,7 +263,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
             row.innerHTML = `
               <div style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
                 <span style="font-weight: 600; color: var(--text-main);">${st.stage}</span>
-                <span style="font-weight: 700; color: var(--text-muted);">${st.count}</span>
+                <span style="font-weight: 700; color: var(--text-main);">${st.count}</span>
               </div>
               <div style="height: 6px; background-color: var(--bg-subtle); border-radius: var(--radius-full); overflow: hidden;">
                 <div style="height: 100%; width: ${percent}%; background-color: var(--brand-600); border-radius: var(--radius-full);"></div>

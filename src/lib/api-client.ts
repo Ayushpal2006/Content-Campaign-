@@ -9,6 +9,12 @@ export class ApiError extends Error {
   }
 }
 
+function isLoginPath(pathname: string): boolean {
+  if (!pathname) return false;
+  const clean = pathname.toLowerCase().replace(/\/+$/, '').split('?')[0] || '/';
+  return clean === '/login';
+}
+
 /**
  * Checks session state with /api/auth/session
  */
@@ -16,6 +22,7 @@ export async function checkAuthSession(): Promise<boolean> {
   try {
     const res = await fetch('/api/auth/session', {
       method: 'GET',
+      credentials: 'same-origin',
       headers: { Accept: 'application/json' },
     });
     if (!res.ok) return false;
@@ -33,6 +40,7 @@ export async function submitLogin(accessCode: string): Promise<{ ok: boolean; er
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
@@ -63,10 +71,13 @@ export async function submitLogout(): Promise<void> {
   try {
     await fetch('/api/auth/logout', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { Accept: 'application/json' },
     });
   } finally {
-    window.location.href = '/login';
+    if (!isLoginPath(window.location.pathname)) {
+      window.location.replace('/login');
+    }
   }
 }
 
@@ -85,6 +96,7 @@ export async function fetchInfinityAction<T = unknown>(
   try {
     const res = await fetch('/api/infinity', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
@@ -99,10 +111,10 @@ export async function fetchInfinityAction<T = unknown>(
     clearTimeout(timeoutId);
 
     if (res.status === 401) {
-      // Unauthorized -> redirect to login
-      const currentPath = window.location.pathname;
-      if (currentPath !== '/login') {
-        window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+      // Unauthorized -> redirect to login if not already there
+      const currentPath = window.location.pathname + window.location.search;
+      if (!isLoginPath(window.location.pathname)) {
+        window.location.replace(`/login?redirect=${encodeURIComponent(currentPath)}`);
       }
       throw new ApiError('Unauthorized session', 401);
     }

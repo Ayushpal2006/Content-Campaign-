@@ -7,8 +7,8 @@
 <div id="video-drawer" class="drawer">
   <div class="drawer-header">
     <div>
-      <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--brand-700); letter-spacing: 0.05em;">Video Operations</span>
-      <h2 id="drawer-video-id" class="font-mono" style="font-size: 1.125rem; font-weight: 700; color: var(--text-main);">—</h2>
+      <span style="font-size: 0.6875rem; text-transform: uppercase; font-weight: 700; color: var(--brand-700); letter-spacing: 0.05em;">Video Operations</span>
+      <h2 id="drawer-video-id" class="font-mono" style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-top: 1px;">—</h2>
     </div>
     <button class="btn btn-secondary btn-sm" onclick="closeVideoDrawer()" aria-label="Close drawer" style="padding: 0.35rem 0.5rem;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -22,75 +22,80 @@
     <div class="skeleton skeleton-title"></div>
     <div class="skeleton skeleton-text"></div>
     <div class="skeleton skeleton-text"></div>
-    <div class="skeleton skeleton-metric" style="margin-top: 1rem;"></div>
+    <div class="skeleton skeleton-metric" style="margin-top: 0.75rem;"></div>
   </div>
 
   <div id="drawer-content" class="drawer-body">
     <!-- Title & Status Section -->
-    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-      <h3 id="drawer-title" style="font-size: 1rem; font-weight: 700; color: var(--text-main); line-height: 1.3;">—</h3>
-      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+    <div style="display: flex; flex-direction: column; gap: 0.375rem;">
+      <h3 id="drawer-title" style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.35;">—</h3>
+      <div style="display: flex; gap: 0.375rem; flex-wrap: wrap; align-items: center;">
         <span id="drawer-status-chip" class="chip chip-default">—</span>
         <span id="drawer-sla-chip" class="chip chip-default" style="display: none;">—</span>
       </div>
     </div>
 
     <!-- Metadata Grid -->
-    <div class="card" style="padding: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-subtle);">
+    <div class="card" style="padding: 0.875rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-subtle);">
       <div>
-        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Teacher / Talent</div>
-        <div id="drawer-teacher" style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); margin-top: 2px;">—</div>
+        <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Talent / Teacher</div>
+        <div id="drawer-teacher" style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main); margin-top: 2px;">—</div>
       </div>
       <div>
-        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Assigned Editor</div>
-        <div id="drawer-editor" style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); margin-top: 2px;">—</div>
+        <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Assigned Editor</div>
+        <div id="drawer-editor" style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main); margin-top: 2px;">—</div>
       </div>
+    </div>
+
+    <!-- Script / Hook Box -->
+    <div id="drawer-script-section" style="display: flex; flex-direction: column; gap: 0.375rem;">
+      <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Script & Production Notes</span>
+      <div id="drawer-script-text" style="font-size: 0.8125rem; color: var(--text-main); background: #fff; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); line-height: 1.4; max-height: 160px; overflow-y: auto; white-space: pre-wrap;">—</div>
     </div>
 
     <!-- Drive & External Assets Links -->
-    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-      <span style="font-size: 0.8125rem; font-weight: 700; color: var(--text-main);">Drive Folders & Assets</span>
+    <div style="display: flex; flex-direction: column; gap: 0.375rem;">
+      <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Drive Assets & Communication</span>
       
       <div id="drawer-links-container" style="display: flex; flex-direction: column; gap: 0.375rem;">
-        <div id="drawer-raw-folder-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">RAW Folder</span>
+        <div id="drawer-main-folder-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.45rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main);">Main Video Folder</span>
+          <a id="drawer-main-folder-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: var(--brand-700);">Open Drive ↗</a>
+        </div>
+
+        <div id="drawer-raw-folder-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.45rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main);">RAW Folder</span>
           <a id="drawer-raw-folder-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: var(--brand-700);">Open Drive ↗</a>
         </div>
 
-        <div id="drawer-raw-file-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">RAW Video File</span>
+        <div id="drawer-raw-file-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.45rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main);">RAW Video File</span>
           <a id="drawer-raw-file-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: var(--brand-700);">View File ↗</a>
         </div>
 
-        <div id="drawer-final-folder-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">FINAL Folder</span>
+        <div id="drawer-final-folder-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.45rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main);">FINAL Folder</span>
           <a id="drawer-final-folder-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: var(--brand-700);">Open Drive ↗</a>
         </div>
 
-        <div id="drawer-final-file-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">FINAL Output File</span>
+        <div id="drawer-final-file-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.45rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main);">FINAL Video File</span>
           <a id="drawer-final-file-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: var(--brand-700);">View File ↗</a>
         </div>
 
-        <div id="drawer-whatsapp-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">WhatsApp Discussion</span>
+        <div id="drawer-whatsapp-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.45rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main);">Editor WhatsApp</span>
           <a id="drawer-whatsapp-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: #059669;">Open Chat ↗</a>
         </div>
 
-        <div id="drawer-no-links" style="font-size: 0.8125rem; color: var(--text-subtle); padding: 0.5rem 0;">No external links returned.</div>
+        <div id="drawer-no-links" style="font-size: 0.8125rem; color: var(--text-subtle); padding: 0.35rem 0;">No external asset links returned.</div>
       </div>
-    </div>
-
-    <!-- QC Notes Section -->
-    <div id="drawer-qc-section" style="display: flex; flex-direction: column; gap: 0.375rem;">
-      <span style="font-size: 0.8125rem; font-weight: 700; color: var(--text-main);">QC Notes & Feedback</span>
-      <div id="drawer-qc-notes" style="font-size: 0.8125rem; color: var(--text-main); background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); line-height: 1.4; white-space: pre-wrap;">—</div>
     </div>
 
     <!-- Timeline & Timestamps -->
     <div id="drawer-timeline-section" style="display: flex; flex-direction: column; gap: 0.375rem;">
-      <span style="font-size: 0.8125rem; font-weight: 700; color: var(--text-main);">Timeline & Activity</span>
-      <div id="drawer-timeline-container" style="display: flex; flex-direction: column; gap: 0.375rem;">
+      <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Pipeline Activity Dates</span>
+      <div id="drawer-timeline-container" style="display: flex; flex-direction: column; gap: 0.25rem;">
         <!-- Filled dynamically -->
       </div>
     </div>
@@ -113,18 +118,18 @@
   <div class="modal-card">
     <div style="display: flex; align-items: center; gap: 0.75rem;">
       <div style="width: 36px; height: 36px; border-radius: var(--radius-full); background: var(--brand-100); color: var(--brand-700); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
       </div>
       <div>
-        <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-main);">Run RAW Video Detection?</h4>
-        <p style="font-size: 0.8125rem; color: var(--text-muted);">This scans Google Drive for video <span id="modal-video-id" class="font-mono" style="font-weight: 700; color: var(--brand-700);"></span> and updates metadata.</p>
+        <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Run RAW Video Detection?</h4>
+        <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px;">This scans Google Drive for video <span id="modal-video-id" class="font-mono" style="font-weight: 700; color: var(--brand-700);"></span> and updates metadata.</p>
       </div>
     </div>
 
-    <div id="modal-action-status" style="display: none; padding: 0.75rem; border-radius: var(--radius-md); font-size: 0.8125rem;"></div>
+    <div id="modal-action-status" style="display: none; padding: 0.65rem 0.85rem; border-radius: var(--radius-md); font-size: 0.8125rem;"></div>
 
     <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
       <button id="modal-cancel-btn" class="btn btn-secondary" onclick="closeDetectRawModal()">Cancel</button>
@@ -137,6 +142,7 @@
 
 <script is:inline>
   let activeSelectedVideoId = '';
+  let isDetectRawRunning = false;
 
   function openVideoDrawer(videoId) {
     if (!videoId || videoId === '—') return;
@@ -158,6 +164,7 @@
     // Fetch video detail
     fetch('/api/infinity', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'video', videoId: videoId })
     })
@@ -185,28 +192,38 @@
     if (loading) loading.style.display = 'none';
     if (content) content.style.display = 'block';
 
-    const obj = raw.video || raw.data || raw.result || raw || {};
+    const obj = raw.result || raw.video || raw.data || raw || {};
 
     const safeVal = (v) => (v !== undefined && v !== null && String(v).trim() !== '' ? String(v).trim() : '—');
 
-    const id = safeVal(obj.id || obj.videoId || videoId);
-    const title = safeVal(obj.title || obj.topic || obj.name);
-    const teacher = safeVal(obj.teacher || obj.talent || obj.instructor);
-    const editor = safeVal(obj.editor || obj.assignedTo);
-    const status = safeVal(obj.status || obj.state || obj.currentStatus);
-    const sla = safeVal(obj.sla || obj.slaState || obj.dueDate);
-    const qcNotes = safeVal(obj.qcNotes || obj.qc_notes || obj.notes || obj.remarks || obj.feedback);
+    const id = safeVal(obj.videoId || obj.id || videoId);
+    
+    let title = safeVal(obj.scriptPreview || obj.title || obj.topic || obj.name);
+    if (title.includes('\n')) {
+      title = title.split('\n')[0].trim();
+    }
 
-    const rawFolder = obj.rawFolder || obj.rawFolderUrl || obj.raw_folder;
-    const rawFile = obj.rawFileLink || obj.rawLink || obj.rawUrl || obj.raw_url;
-    const finalFolder = obj.finalFolder || obj.finalFolderUrl || obj.final_folder;
-    const finalFile = obj.finalFileLink || obj.finalLink || obj.finalUrl || obj.final_url;
-    const whatsapp = obj.whatsappLink || obj.whatsapp || obj.chatUrl;
+    const scriptText = safeVal(obj.script || obj.scriptPreview);
+    const teacher = safeVal(obj.talent || obj.teacher || obj.instructor);
+    const editor = safeVal(obj.editor || obj.assignedTo);
+    const status = safeVal(obj.productionStatus || obj.status || obj.state);
+    const sla = safeVal(obj.slaStatus || obj.sla);
+
+    const mainFolder = obj.driveFolderUrl;
+    const rawFolder = obj.rawFolderUrl || obj.rawFolder;
+    const rawFile = obj.rawFileUrl || obj.rawFileLink;
+    const finalFolder = obj.finalFolderUrl || obj.finalFolder;
+    const finalFile = obj.finalFileUrl || obj.finalFileLink;
+    const whatsapp = obj.editorWhatsAppUrl || obj.whatsappLink || obj.whatsapp;
 
     document.getElementById('drawer-video-id').textContent = id;
     document.getElementById('drawer-title').textContent = title;
     document.getElementById('drawer-teacher').textContent = teacher;
-    document.getElementById('drawer-editor').textContent = editor;
+    document.getElementById('drawer-editor').textContent = editor !== '—' ? editor : 'Unassigned';
+
+    // Script text
+    const scriptEl = document.getElementById('drawer-script-text');
+    if (scriptEl) scriptEl.textContent = scriptText;
 
     // Status Chip
     const statusChip = document.getElementById('drawer-status-chip');
@@ -217,7 +234,6 @@
         s.includes('approved') || s.includes('uploaded') || s.includes('done') ? 'chip-emerald' :
         s.includes('overdue') || s.includes('blocked') || s.includes('error') ? 'chip-red' :
         s.includes('qc') || s.includes('review') ? 'chip-purple' :
-        s.includes('change') || s.includes('revision') ? 'chip-rose' :
         s.includes('editing') || s.includes('in progress') ? 'chip-amber' :
         'chip-blue'
       );
@@ -228,16 +244,12 @@
     if (slaChip) {
       if (sla !== '—') {
         slaChip.style.display = 'inline-flex';
+        const slaLower = sla.toLowerCase();
+        slaChip.className = 'chip ' + (slaLower.includes('overdue') ? 'chip-red' : 'chip-default');
         slaChip.textContent = `SLA: ${sla}`;
       } else {
         slaChip.style.display = 'none';
       }
-    }
-
-    // QC Notes
-    const qcNotesEl = document.getElementById('drawer-qc-notes');
-    if (qcNotesEl) {
-      qcNotesEl.textContent = qcNotes;
     }
 
     // External Links
@@ -254,6 +266,7 @@
       }
     };
 
+    setLink('drawer-main-folder-row', 'drawer-main-folder-link', mainFolder);
     setLink('drawer-raw-folder-row', 'drawer-raw-folder-link', rawFolder);
     setLink('drawer-raw-file-row', 'drawer-raw-file-link', rawFile);
     setLink('drawer-final-folder-row', 'drawer-final-folder-link', finalFolder);
@@ -270,14 +283,11 @@
     if (timelineContainer) {
       timelineContainer.innerHTML = '';
       const timestamps = [
-        { label: 'Created / Shoot', val: obj.createdAt || obj.created_at || obj.shootDate },
-        { label: 'RAW Detected', val: obj.rawDetectedAt || obj.raw_detected_at },
-        { label: 'Editing Started', val: obj.editingStartedAt || obj.editing_started_at },
-        { label: 'QC Submitted', val: obj.qcSubmittedAt || obj.qc_submitted_at },
-        { label: 'Approved At', val: obj.approvedAt || obj.approved_at },
-        { label: 'Uploaded At', val: obj.uploadedAt || obj.uploaded_at },
-        { label: 'Last Modified', val: obj.updatedAt || obj.lastUpdated }
-      ].filter(t => t.val);
+        { label: 'Publish Date', val: obj.publishDate },
+        { label: 'Assigned Date', val: obj.assignmentUpdatedAt },
+        { label: 'Stage Updated', val: obj.stageUpdatedAt },
+        { label: 'SLA Deadline', val: obj.dueAt }
+      ].filter(t => t.val && String(t.val).trim() !== '');
 
       if (timestamps.length > 0) {
         timestamps.forEach(t => {
@@ -311,13 +321,15 @@
   }
 
   function closeDetectRawModal() {
+    if (isDetectRawRunning) return; // Prevent closing while running
     const modal = document.getElementById('detect-raw-modal');
     if (modal) modal.classList.remove('open');
   }
 
   async function executeDetectRaw() {
-    if (!activeSelectedVideoId) return;
+    if (!activeSelectedVideoId || isDetectRawRunning) return;
 
+    isDetectRawRunning = true;
     const confirmBtn = document.getElementById('modal-confirm-btn');
     const cancelBtn = document.getElementById('modal-cancel-btn');
     const confirmText = document.getElementById('modal-confirm-text');
@@ -337,6 +349,7 @@
     try {
       const res = await fetch('/api/infinity', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'detect_raw',
@@ -360,6 +373,7 @@
 
       // Refresh drawer and page data
       setTimeout(() => {
+        isDetectRawRunning = false;
         closeDetectRawModal();
         openVideoDrawer(activeSelectedVideoId);
         if (typeof window.__refreshOperationsData === 'function') {
@@ -368,6 +382,7 @@
       }, 1200);
 
     } catch (err) {
+      isDetectRawRunning = false;
       if (statusBox) {
         statusBox.style.background = '#fff1f2';
         statusBox.style.color = '#be123c';
@@ -375,13 +390,18 @@
       }
       showToast(err.message || 'Detection failed', 'error');
     } finally {
-      if (confirmBtn) confirmBtn.disabled = false;
-      if (cancelBtn) cancelBtn.disabled = false;
-      if (confirmText) confirmText.textContent = 'Confirm & Run';
+      if (!isDetectRawRunning) {
+        if (confirmBtn) confirmBtn.disabled = false;
+        if (cancelBtn) cancelBtn.disabled = false;
+        if (confirmText) confirmText.textContent = 'Confirm & Run';
+      }
     }
   }
 
   // Expose to window for external row clicks
   window.openVideoDrawer = openVideoDrawer;
   window.closeVideoDrawer = closeVideoDrawer;
+  window.openDetectRawModal = openDetectRawModal;
+  window.closeDetectRawModal = closeDetectRawModal;
+  window.executeDetectRaw = executeDetectRaw;
 </script>

@@ -5,16 +5,16 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
 <Layout title="Videos Management" activeTab="videos">
   <!-- Controls Bar: Search & Filters -->
-  <div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
-    <div style="display: flex; flex-wrap: wrap; gap: 0.875rem; align-items: center; justify-content: space-between;">
+  <div class="card" style="padding: 0.875rem 1.25rem; margin-bottom: 1.25rem;">
+    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: space-between;">
       <!-- Search Input -->
-      <div style="position: relative; flex: 1; min-width: 240px; max-width: 400px;">
+      <div style="position: relative; flex: 1; min-width: 240px; max-width: 380px;">
         <input
           id="video-search-input"
           type="text"
-          placeholder="Search by title, ID, teacher, editor..."
+          placeholder="Search by title, ID, talent, editor..."
           oninput="handleSearchChange()"
-          style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff;"
+          style="width: 100%; padding: 0.45rem 0.75rem 0.45rem 2.25rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff;"
         />
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
           <circle cx="11" cy="11" r="8" />
@@ -23,12 +23,12 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       </div>
 
       <!-- Filters Group -->
-      <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
+      <div style="display: flex; flex-wrap: wrap; gap: 0.625rem; align-items: center;">
         <!-- Status Filter -->
         <select
           id="status-filter-select"
           onchange="handleFilterChange()"
-          style="padding: 0.5rem 0.75rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff; color: var(--text-main); font-weight: 500;"
+          style="padding: 0.45rem 0.75rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff; color: var(--text-main); font-weight: 500;"
         >
           <option value="">All Statuses</option>
         </select>
@@ -37,12 +37,12 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         <select
           id="editor-filter-select"
           onchange="handleFilterChange()"
-          style="padding: 0.5rem 0.75rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff; color: var(--text-main); font-weight: 500;"
+          style="padding: 0.45rem 0.75rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff; color: var(--text-main); font-weight: 500;"
         >
           <option value="">All Editors</option>
         </select>
 
-        <button class="btn btn-secondary btn-sm" onclick="resetFilters()" style="padding: 0.5rem 0.75rem;">
+        <button class="btn btn-secondary btn-sm" onclick="resetFilters()" style="padding: 0.45rem 0.75rem;">
           Reset
         </button>
       </div>
@@ -50,7 +50,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
   </div>
 
   <!-- Error State -->
-  <div id="videos-error" class="error-state" style="display: none; margin-bottom: 1.5rem;">
+  <div id="videos-error" class="error-state" style="display: none; margin-bottom: 1.25rem;">
     <div style="font-weight: 700; font-size: 0.95rem;">Unable to load video records</div>
     <p id="videos-error-text" style="font-size: 0.8125rem; margin-top: 0.25rem;">Connection failed.</p>
     <button class="btn btn-primary btn-sm" onclick="loadVideosList()" style="margin-top: 0.5rem;">
@@ -59,8 +59,9 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
   </div>
 
   <!-- Loading Skeletons -->
-  <div id="videos-loading" class="card" style="padding: 1.5rem; display: block;">
+  <div id="videos-loading" class="card" style="padding: 1.25rem; display: block;">
     <div class="skeleton skeleton-title"></div>
+    <div class="skeleton skeleton-text"></div>
     <div class="skeleton skeleton-text"></div>
     <div class="skeleton skeleton-text"></div>
     <div class="skeleton skeleton-text"></div>
@@ -73,12 +74,12 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         <thead>
           <tr>
             <th style="width: 110px;">Video ID</th>
-            <th>Title / Topic</th>
-            <th>Teacher / Talent</th>
-            <th>Editor</th>
-            <th>Status</th>
-            <th>SLA / Due</th>
-            <th>RAW / FINAL</th>
+            <th style="min-width: 220px;">Title / Script Hook</th>
+            <th style="width: 120px;">Talent</th>
+            <th style="width: 130px;">Editor</th>
+            <th style="width: 120px;">Status</th>
+            <th style="width: 130px;">SLA State</th>
+            <th style="width: 120px;">Assets</th>
             <th style="width: 80px; text-align: right;">Action</th>
           </tr>
         </thead>
@@ -90,15 +91,15 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
     <!-- Empty State for Table -->
     <div id="videos-empty" class="empty-state" style="display: none;">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-subtle);">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-subtle);">
         <polygon points="23 7 16 12 23 17 23 7" />
         <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
       </svg>
-      <p style="font-size: 0.875rem; font-weight: 600;">No videos match the current filters.</p>
+      <p style="font-size: 0.875rem; font-weight: 600;">No videos match the current search or filters.</p>
     </div>
 
     <!-- Pagination & Summary Footer -->
-    <div style="padding: 0.875rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; font-size: 0.8125rem; color: var(--text-muted);">
+    <div style="padding: 0.75rem 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; font-size: 0.8125rem; color: var(--text-muted);">
       <div>
         Showing <span id="page-start-idx" style="font-weight: 700; color: var(--text-main);">0</span> to <span id="page-end-idx" style="font-weight: 700; color: var(--text-main);">0</span> of <span id="total-videos-count" style="font-weight: 700; color: var(--text-main);">0</span> videos
       </div>
@@ -132,6 +133,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       try {
         const res = await fetch('/api/infinity', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'videos' })
         });
@@ -142,7 +144,20 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           throw new Error(data.error || 'Failed to load videos list');
         }
 
-        const rawList = data.videos || data.data || data.result || data.items || (Array.isArray(data) ? data : []);
+        const resObj = data.result || data.data || data;
+        let rawList = [];
+        if (Array.isArray(resObj)) {
+          rawList = resObj;
+        } else if (resObj && typeof resObj === 'object') {
+          if (Array.isArray(resObj.items)) rawList = resObj.items;
+          else if (Array.isArray(resObj.videos)) rawList = resObj.videos;
+          else if (Array.isArray(resObj.data)) rawList = resObj.data;
+        } else if (Array.isArray(data.items)) {
+          rawList = data.items;
+        } else if (Array.isArray(data.videos)) {
+          rawList = data.videos;
+        }
+
         normalizeAndStoreVideos(rawList);
 
         if (lastUpdatedEl) {
@@ -177,20 +192,26 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
       allVideos = rawList.map(item => {
         if (!item || typeof item !== 'object') {
-          return { id: '—', title: '—', teacher: '—', editor: '—', status: '—', sla: '—', rawAvailable: false, finalAvailable: false };
+          return { id: '—', title: '—', fullTitle: '', teacher: '—', editor: '—', status: '—', sla: '—', rawAvailable: false, finalAvailable: false };
         }
 
-        const id = safeVal(item.id || item.videoId || item.video_id || item.code);
-        const title = safeVal(item.title || item.topic || item.name || item.subject);
-        const teacher = safeVal(item.teacher || item.talent || item.instructor || item.faculty);
-        const editor = safeVal(item.editor || item.assignedTo || item.editorName);
-        const status = safeVal(item.status || item.state || item.currentStatus);
-        const sla = safeVal(item.sla || item.slaState || item.dueDate || item.deadline);
+        const id = safeVal(item.videoId || item.id || item.video_id || item.code);
+        
+        const fullText = safeVal(item.scriptPreview || item.title || item.topic || item.name || item.subject);
+        let title = fullText;
+        if (title.includes('\n')) {
+          title = title.split('\n')[0].trim();
+        }
 
-        const hasRaw = Boolean(item.rawAvailable || item.hasRaw || item.rawFolder || item.rawLink || item.rawUrl);
-        const hasFinal = Boolean(item.finalAvailable || item.hasFinal || item.finalFolder || item.finalLink || item.finalUrl);
+        const teacher = safeVal(item.talent || item.teacher || item.instructor);
+        const editor = safeVal(item.editor || item.assignedTo);
+        const status = safeVal(item.productionStatus || item.status || item.state);
+        const sla = safeVal(item.slaStatus || item.sla);
 
-        return { id, title, teacher, editor, status, sla, rawAvailable: hasRaw, finalAvailable: hasFinal, rawRecord: item };
+        const hasRaw = Boolean(item.rawFileUrl || item.rawFolderUrl || item.rawLink || item.rawUrl);
+        const hasFinal = Boolean(item.finalFileUrl || item.finalFolderUrl || item.finalLink || item.finalUrl);
+
+        return { id, title: title !== '—' ? title : 'Untitled Video', fullTitle: fullText, teacher, editor, status, sla, rawAvailable: hasRaw, finalAvailable: hasFinal, rawRecord: item };
       });
 
       populateFilterOptions();
@@ -272,7 +293,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
         if (query) {
           const matchId = v.id.toLowerCase().includes(query);
-          const matchTitle = v.title.toLowerCase().includes(query);
+          const matchTitle = v.title.toLowerCase().includes(query) || v.fullTitle.toLowerCase().includes(query);
           const matchTeacher = v.teacher.toLowerCase().includes(query);
           const matchEditor = v.editor.toLowerCase().includes(query);
           if (!matchId && !matchTitle && !matchTeacher && !matchEditor) return false;
@@ -325,7 +346,6 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         const tr = document.createElement('tr');
         tr.className = 'clickable-row';
         tr.onclick = (e) => {
-          // If clicked action button or link directly, let button handle
           if (e.target && (e.target.tagName === 'BUTTON' || e.target.closest('button'))) return;
           if (item.id !== '—' && typeof window.openVideoDrawer === 'function') {
             window.openVideoDrawer(item.id);
@@ -337,21 +357,23 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           s.includes('approved') || s.includes('uploaded') || s.includes('done') ? 'chip-emerald' :
           s.includes('overdue') || s.includes('blocked') || s.includes('error') ? 'chip-red' :
           s.includes('qc') || s.includes('review') ? 'chip-purple' :
-          s.includes('change') || s.includes('revision') ? 'chip-rose' :
           s.includes('editing') || s.includes('in progress') ? 'chip-amber' :
           'chip-blue';
 
+        const slaLower = item.sla.toLowerCase();
+        const slaChipClass = slaLower.includes('overdue') ? 'chip-red' : (slaLower.includes('parked') ? 'chip-default' : 'chip-blue');
+
         tr.innerHTML = `
           <td><span class="font-mono" style="font-size: 0.75rem; font-weight: 700; color: var(--brand-700);">${item.id}</span></td>
-          <td><div style="font-weight: 600; color: var(--text-main); line-height: 1.3;">${item.title}</div></td>
+          <td><div class="cell-title" title="${item.fullTitle}">${item.title}</div></td>
           <td><div style="color: var(--text-muted);">${item.teacher}</div></td>
-          <td><div style="color: var(--text-muted); font-weight: 500;">${item.editor}</div></td>
+          <td><div style="color: var(--text-muted); font-weight: 500;">${item.editor !== '—' ? item.editor : '<span style="color: var(--brand-700);">Unassigned</span>'}</div></td>
           <td><span class="chip ${chipClass}">${item.status}</span></td>
-          <td><span style="font-size: 0.75rem; color: var(--text-muted);">${item.sla}</span></td>
+          <td><span class="chip ${slaChipClass}" style="font-size: 0.6875rem;">${item.sla}</span></td>
           <td>
             <div style="display: flex; gap: 0.25rem;">
-              <span class="chip ${item.rawAvailable ? 'chip-emerald' : 'chip-default'}" style="font-size: 0.6875rem; padding: 0.1rem 0.35rem;">RAW</span>
-              <span class="chip ${item.finalAvailable ? 'chip-emerald' : 'chip-default'}" style="font-size: 0.6875rem; padding: 0.1rem 0.35rem;">FINAL</span>
+              <span class="chip ${item.rawAvailable ? 'chip-emerald' : 'chip-default'}" style="font-size: 0.6875rem; padding: 0.05rem 0.35rem;">RAW</span>
+              <span class="chip ${item.finalAvailable ? 'chip-emerald' : 'chip-default'}" style="font-size: 0.6875rem; padding: 0.05rem 0.35rem;">FINAL</span>
             </div>
           </td>
           <td style="text-align: right;">

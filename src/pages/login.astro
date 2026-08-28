@@ -72,15 +72,47 @@ import Layout from '../layouts/Layout.astro';
   </style>
 
   <script is:inline>
-    // If already authenticated, redirect to dashboard
+    function isLoginUrl(urlStr) {
+      if (!urlStr) return false;
+      const clean = urlStr.toLowerCase().replace(/\/+$/, '').split('?')[0] || '/';
+      return clean === '/login';
+    }
+
+    function getSafeRedirect() {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get('redirect') || '/';
+      if (isLoginUrl(raw) || !raw.startsWith('/')) {
+        return '/';
+      }
+      return raw;
+    }
+
+    // Unregister any stale service workers
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (const reg of registrations) {
+          reg.unregister();
+        }
+      }).catch(() => {});
+    }
+
+    // Run auth check once on mount
     (function() {
-      fetch('/api/auth/session')
+      let isChecked = false;
+      fetch('/api/auth/session', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' }
+      })
         .then(res => res.json())
         .then(data => {
-          if (data.authenticated) {
-            const params = new URLSearchParams(window.location.search);
-            const redirect = params.get('redirect') || '/';
-            window.location.href = redirect;
+          if (isChecked) return;
+          isChecked = true;
+          if (data && data.authenticated) {
+            const target = getSafeRedirect();
+            if (!isLoginUrl(target) && window.location.pathname !== target) {
+              window.location.replace(target);
+            }
           }
         })
         .catch(() => {});
@@ -106,8 +138,12 @@ import Layout from '../layouts/Layout.astro';
       }
     }
 
+    let isSubmitting = false;
+
     async function handleLoginSubmit(event) {
-      event.preventDefault();
+      if (event && event.preventDefault) event.preventDefault();
+      if (isSubmitting) return;
+
       const codeInput = document.getElementById('access-code');
       const errorBox = document.getElementById('login-error');
       const errorText = document.getElementById('login-error-text');
@@ -117,6 +153,7 @@ import Layout from '../layouts/Layout.astro';
 
       if (!codeInput || !codeInput.value.trim()) return;
 
+      isSubmitting = true;
       if (errorBox) errorBox.style.display = 'none';
       if (submitBtn) submitBtn.disabled = true;
       if (btnSpinner) btnSpinner.style.display = 'inline-block';
@@ -125,6 +162,7 @@ import Layout from '../layouts/Layout.astro';
       try {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accessCode: codeInput.value.trim() }),
         });
@@ -135,16 +173,16 @@ import Layout from '../layouts/Layout.astro';
           throw new Error(data.error || 'Invalid access code');
         }
 
-        // Success
-        const params = new URLSearchParams(window.location.search);
-        const redirect = params.get('redirect') || '/';
-        window.location.href = redirect;
+        // Authenticated successfully -> navigate once to target
+        const target = getSafeRedirect();
+        window.location.replace(target);
       } catch (err) {
         if (errorBox && errorText) {
           errorText.textContent = err.message || 'Authentication failed. Please check access code.';
           errorBox.style.display = 'block';
         }
       } finally {
+        isSubmitting = false;
         if (submitBtn) submitBtn.disabled = false;
         if (btnSpinner) btnSpinner.style.display = 'none';
         if (btnText) btnText.textContent = 'Authenticate';

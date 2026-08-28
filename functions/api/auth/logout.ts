@@ -1,13 +1,13 @@
 import { clearSessionCookie } from '../../utils/auth';
 
-export const onRequestPost: PagesFunction = async () => {
+export const onRequestPost: PagesFunction = async (context) => {
   return new Response(
     JSON.stringify({ ok: true }),
     {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Set-Cookie': clearSessionCookie(),
+        'Set-Cookie': clearSessionCookie(context.request),
       },
     }
   );

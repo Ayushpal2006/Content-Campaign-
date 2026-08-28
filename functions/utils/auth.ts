@@ -56,7 +56,29 @@ function parseCookies(header: string): Record<string, string> {
   return cookies;
 }
 
-export async function createSessionCookie(secret: string, maxAgeSeconds = 7 * 24 * 3600): Promise<{ cookie: string; token: string }> {
+function isRequestSecure(request?: Request): boolean {
+  if (!request) return false;
+  try {
+    const url = new URL(request.url);
+    const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname.endsWith('.local');
+    if (isLocalhost && url.protocol === 'http:') {
+      return false;
+    }
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    if (forwardedProto) {
+      return forwardedProto === 'https';
+    }
+    return url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+export async function createSessionCookie(
+  secret: string,
+  request?: Request,
+  maxAgeSeconds = 7 * 24 * 3600
+): Promise<{ cookie: string; token: string }> {
   const now = Math.floor(Date.now() / 1000);
   const payload: SessionPayload = {
     iat: now,
@@ -67,7 +89,9 @@ export async function createSessionCookie(secret: string, maxAgeSeconds = 7 * 24
   const payloadStr = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const signature = await signHmac(payloadStr, secret);
   const token = `${payloadStr}.${signature}`;
-  const cookie = `infinity_session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAgeSeconds}`;
+
+  const secureFlag = isRequestSecure(request) ? ' Secure;' : '';
+  const cookie = `infinity_session=${token}; Path=/; HttpOnly;${secureFlag} SameSite=Lax; Max-Age=${maxAgeSeconds}`;
   return { cookie, token };
 }
 
@@ -101,6 +125,7 @@ export async function verifySessionCookie(request: Request, secret: string): Pro
   }
 }
 
-export function clearSessionCookie(): string {
-  return 'infinity_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+export function clearSessionCookie(request?: Request): string {
+  const secureFlag = isRequestSecure(request) ? ' Secure;' : '';
+  return `infinity_session=; Path=/; HttpOnly;${secureFlag} SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 }

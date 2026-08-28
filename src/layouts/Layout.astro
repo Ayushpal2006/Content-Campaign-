@@ -7,6 +7,7 @@ interface Props {
 }
 
 const { title = 'Infinity Operations', activeTab = 'dashboard' } = Astro.props;
+const isLoginPage = activeTab === 'login';
 ---
 
 <!doctype html>
@@ -20,7 +21,7 @@ const { title = 'Infinity Operations', activeTab = 'dashboard' } = Astro.props;
     <link rel="icon" href="/favicon.ico" />
   </head>
   <body>
-    {activeTab === 'login' ? (
+    {isLoginPage ? (
       <slot />
     ) : (
       <div class="app-container">
@@ -125,7 +126,13 @@ const { title = 'Infinity Operations', activeTab = 'dashboard' } = Astro.props;
     <!-- Toast Notification Container -->
     <div id="toast-root" class="toast-container"></div>
 
-    <script is:inline>
+    <script is:inline define:vars={{ isLoginPage }}>
+      function isLoginRoute(pathname) {
+        if (!pathname) return false;
+        const clean = pathname.toLowerCase().replace(/\/+$/, '').split('?')[0] || '/';
+        return clean === '/login';
+      }
+
       function toggleMobileSidebar() {
         const sidebar = document.getElementById('sidebar');
         const backdrop = document.getElementById('sidebar-backdrop');
@@ -148,32 +155,48 @@ const { title = 'Infinity Operations', activeTab = 'dashboard' } = Astro.props;
 
       async function handleLogout() {
         try {
-          await fetch('/api/auth/logout', { method: 'POST' });
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' }
+          });
         } finally {
-          window.location.href = '/login';
+          if (!isLoginRoute(window.location.pathname)) {
+            window.location.replace('/login');
+          }
         }
       }
 
       function triggerPageRefresh() {
         if (typeof window.__refreshOperationsData === 'function') {
           window.__refreshOperationsData();
-        } else {
-          window.location.reload();
         }
       }
 
-      // Check session on page load if not login page
+      // Check session on page load ONLY for protected pages (never for login page)
       (function() {
-        if (window.location.pathname !== '/login') {
-          fetch('/api/auth/session')
-            .then(res => res.json())
-            .then(data => {
-              if (!data.authenticated) {
-                window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-              }
-            })
-            .catch(() => {});
+        if (isLoginPage || isLoginRoute(window.location.pathname)) {
+          return;
         }
+
+        let sessionChecked = false;
+        fetch('/api/auth/session', {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' }
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (sessionChecked) return;
+            sessionChecked = true;
+            if (!data || !data.authenticated) {
+              const currentPath = window.location.pathname + window.location.search;
+              if (!isLoginRoute(window.location.pathname)) {
+                window.location.replace('/login?redirect=' + encodeURIComponent(currentPath));
+              }
+            }
+          })
+          .catch(() => {});
       })();
     </script>
   </body>

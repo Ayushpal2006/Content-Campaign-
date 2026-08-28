@@ -66,7 +66,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // Access code is valid -> create signed session cookie
-    const { cookie } = await createSessionCookie(sessionSecret);
+    const { cookie } = await createSessionCookie(sessionSecret, context.request);
 
     return new Response(
       JSON.stringify({ ok: true }),

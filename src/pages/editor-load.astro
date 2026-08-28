@@ -4,16 +4,16 @@ import Layout from '../layouts/Layout.astro';
 
 <Layout title="Editor Load" activeTab="editors">
   <!-- Controls Bar -->
-  <div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
-    <div style="display: flex; flex-wrap: wrap; gap: 0.875rem; align-items: center; justify-content: space-between;">
+  <div class="card" style="padding: 0.875rem 1.25rem; margin-bottom: 1.25rem;">
+    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: space-between;">
       <!-- Search Input -->
-      <div style="position: relative; flex: 1; min-width: 240px; max-width: 380px;">
+      <div style="position: relative; flex: 1; min-width: 240px; max-width: 360px;">
         <input
           id="editor-search-input"
           type="text"
           placeholder="Filter editors by name..."
           oninput="handleEditorSearch()"
-          style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff;"
+          style="width: 100%; padding: 0.45rem 0.75rem 0.45rem 2.25rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff;"
         />
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
           <circle cx="11" cy="11" r="8" />
@@ -22,13 +22,13 @@ import Layout from '../layouts/Layout.astro';
       </div>
 
       <div style="font-size: 0.8125rem; color: var(--text-muted);">
-        Total Active Editors: <span id="total-editors-count" style="font-weight: 700; color: var(--text-main);">0</span>
+        Active Editors on Roster: <span id="total-editors-count" style="font-weight: 700; color: var(--text-main);">0</span>
       </div>
     </div>
   </div>
 
   <!-- Error State -->
-  <div id="editors-error" class="error-state" style="display: none; margin-bottom: 1.5rem;">
+  <div id="editors-error" class="error-state" style="display: none; margin-bottom: 1.25rem;">
     <div style="font-weight: 700; font-size: 0.95rem;">Unable to load editor workloads</div>
     <p id="editors-error-text" style="font-size: 0.8125rem; margin-top: 0.25rem;">Connection failed.</p>
     <button class="btn btn-primary btn-sm" onclick="loadEditorData()" style="margin-top: 0.5rem;">
@@ -38,35 +38,36 @@ import Layout from '../layouts/Layout.astro';
 
   <!-- Loading Skeletons -->
   <div id="editors-loading" style="display: block;">
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
-      <div class="skeleton skeleton-metric" style="height: 140px;"></div>
-      <div class="skeleton skeleton-metric" style="height: 140px;"></div>
-      <div class="skeleton skeleton-metric" style="height: 140px;"></div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+      <div class="skeleton skeleton-metric" style="height: 120px;"></div>
+      <div class="skeleton skeleton-metric" style="height: 120px;"></div>
+      <div class="skeleton skeleton-metric" style="height: 120px;"></div>
+      <div class="skeleton skeleton-metric" style="height: 120px;"></div>
     </div>
   </div>
 
   <!-- Dynamic Editor Content -->
   <div id="editors-content" style="display: none;">
     <!-- Cards Grid -->
-    <div id="editors-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div id="editors-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
       <!-- Populated dynamically -->
     </div>
 
     <!-- Compact Table View -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Workload Summary</h2>
+        <h2 class="card-title">Editor Capacity Roster</h2>
       </div>
       <div class="table-container">
         <table class="compact-table">
           <thead>
             <tr>
               <th>Editor Name</th>
-              <th>Active (In Progress)</th>
-              <th>In QC</th>
-              <th>Completed</th>
-              <th>Total Assigned</th>
-              <th>Status / Capacity</th>
+              <th>Open Load</th>
+              <th>Daily Capacity</th>
+              <th>Availability</th>
+              <th>Priority Rank</th>
+              <th>Emergency Backup</th>
             </tr>
           </thead>
           <tbody id="editors-tbody">
@@ -77,8 +78,8 @@ import Layout from '../layouts/Layout.astro';
     </div>
 
     <!-- Empty State -->
-    <div id="editors-empty" class="empty-state" style="display: none; margin-top: 1.5rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-subtle);">
+    <div id="editors-empty" class="empty-state" style="display: none; margin-top: 1.25rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-subtle);">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
       </svg>
@@ -103,6 +104,7 @@ import Layout from '../layouts/Layout.astro';
       try {
         const res = await fetch('/api/infinity', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'editor_load' })
         });
@@ -113,7 +115,7 @@ import Layout from '../layouts/Layout.astro';
           throw new Error(data.error || 'Failed to fetch editor workload data');
         }
 
-        const list = data.editors || data.editorLoad || data.data || data.result || (Array.isArray(data) ? data : []);
+        const list = data.result || data.editors || data.editorLoad || data.data || (Array.isArray(data) ? data : []);
         normalizeAndRenderEditors(list);
 
         if (lastUpdatedEl) {
@@ -144,17 +146,17 @@ import Layout from '../layouts/Layout.astro';
       } else {
         rawEditorsList = list.map(item => {
           if (!item || typeof item !== 'object') {
-            return { name: '—', active: '—', qc: '—', completed: '—', total: '—', status: '—' };
+            return { name: '—', openLoad: '0', dailyCapacity: '—', available: false, priorityRank: '—', backup: false };
           }
 
-          const name = safeVal(item.name || item.editor || item.editorName || item.username);
-          const active = item.active !== undefined ? item.active : (item.inProgress !== undefined ? item.inProgress : (item.editing !== undefined ? item.editing : '—'));
-          const qc = item.qc !== undefined ? item.qc : (item.qcPending !== undefined ? item.qcPending : (item.inQc !== undefined ? item.inQc : '—'));
-          const completed = item.completed !== undefined ? item.completed : (item.done !== undefined ? item.done : (item.uploaded !== undefined ? item.uploaded : '—'));
-          const total = item.total !== undefined ? item.total : (item.totalAssigned !== undefined ? item.totalAssigned : (item.load !== undefined ? item.load : '—'));
-          const status = safeVal(item.capacityStatus || item.status || item.availability);
+          const name = safeVal(item.editor || item.name || item.editorName);
+          const openLoad = item.openLoad !== undefined ? Number(item.openLoad) : 0;
+          const dailyCapacity = item.dailyCapacity !== undefined ? Number(item.dailyCapacity) : 5;
+          const available = item.available !== false;
+          const priorityRank = safeVal(item.topPriorityRank);
+          const backup = Boolean(item.emergencyBackup);
 
-          return { name, active, qc, completed, total, status };
+          return { name, openLoad, dailyCapacity, available, priorityRank, backup };
         });
       }
 
@@ -196,34 +198,38 @@ import Layout from '../layouts/Layout.astro';
         filtered.forEach(editor => {
           const card = document.createElement('div');
           card.className = 'card';
-          card.style.cssText = 'padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;';
+          card.style.cssText = 'padding: 1rem 1.125rem; display: flex; flex-direction: column; gap: 0.625rem; align-self: start;';
+          
+          const loadPercent = Math.min(100, Math.round((editor.openLoad / (editor.dailyCapacity || 5)) * 100));
+          const isHighLoad = editor.openLoad >= editor.dailyCapacity;
+
           card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
               <div>
-                <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-main);">${editor.name}</h3>
-                <span style="font-size: 0.75rem; color: var(--text-muted);">Assigned Workload</span>
+                <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">${editor.name}</h3>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1px;">
+                  ${editor.priorityRank !== '—' ? `Priority Rank: #${editor.priorityRank}` : 'Standard Queue'}
+                </div>
               </div>
-              <span class="chip ${editor.status !== '—' ? 'chip-purple' : 'chip-default'}">${editor.status}</span>
+              <span class="chip ${editor.available ? 'chip-emerald' : 'chip-default'}" style="font-size: 0.6875rem;">
+                ${editor.available ? 'Active' : 'Offline'}
+              </span>
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-md); text-align: center;">
+            <div style="background: var(--bg-subtle); padding: 0.625rem 0.75rem; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted);">Active</div>
-                <div style="font-size: 1.125rem; font-weight: 700; color: #b45309;">${editor.active}</div>
+                <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Open Load</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: ${isHighLoad ? '#be123c' : 'var(--brand-700)'}; line-height: 1.1;">
+                  ${editor.openLoad} <span style="font-size: 0.75rem; font-weight: 500; color: var(--text-muted);">/ ${editor.dailyCapacity} max</span>
+                </div>
               </div>
-              <div>
-                <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted);">In QC</div>
-                <div style="font-size: 1.125rem; font-weight: 700; color: #7e22ce;">${editor.qc}</div>
-              </div>
-              <div>
-                <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted);">Completed</div>
-                <div style="font-size: 1.125rem; font-weight: 700; color: #15803d;">${editor.completed}</div>
-              </div>
+              ${editor.backup ? '<span class="chip chip-purple" style="font-size: 0.6875rem;">Backup Ready</span>' : ''}
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8125rem; padding-top: 0.25rem;">
-              <span style="color: var(--text-muted); font-weight: 500;">Total Pipeline Load:</span>
-              <span style="font-weight: 700; color: var(--brand-700);">${editor.total}</span>
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <div style="height: 4px; background: var(--border-subtle); border-radius: var(--radius-full); overflow: hidden;">
+                <div style="height: 100%; width: ${loadPercent}%; background: ${isHighLoad ? '#be123c' : 'var(--brand-600)'};"></div>
+              </div>
             </div>
           `;
           cardsGrid.appendChild(card);
@@ -237,11 +243,11 @@ import Layout from '../layouts/Layout.astro';
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><strong style="color: var(--text-main);">${editor.name}</strong></td>
-            <td><span class="chip chip-amber" style="font-size: 0.75rem;">${editor.active}</span></td>
-            <td><span class="chip chip-purple" style="font-size: 0.75rem;">${editor.qc}</span></td>
-            <td><span class="chip chip-emerald" style="font-size: 0.75rem;">${editor.completed}</span></td>
-            <td><strong>${editor.total}</strong></td>
-            <td><span class="chip chip-default">${editor.status}</span></td>
+            <td><span class="chip ${editor.openLoad > 0 ? 'chip-amber' : 'chip-default'}" style="font-size: 0.75rem;">${editor.openLoad} tasks</span></td>
+            <td><span style="font-weight: 600;">${editor.dailyCapacity} / day</span></td>
+            <td><span class="chip ${editor.available ? 'chip-emerald' : 'chip-default'}">${editor.available ? 'Available' : 'Offline'}</span></td>
+            <td><span class="font-mono" style="font-size: 0.75rem; color: var(--text-muted);">${editor.priorityRank}</span></td>
+            <td>${editor.backup ? '<span class="chip chip-purple" style="font-size: 0.6875rem;">Backup Enabled</span>' : '—'}</td>
           `;
           tbody.appendChild(tr);
         });
