@@ -358,6 +358,55 @@ html, body {
   margin-bottom: 1.25rem;
 }
 
+.today-mission {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(420px, 2fr);
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.125rem;
+  margin-bottom: 1rem;
+  color: #fff;
+  background: linear-gradient(120deg, #831843, #be185d 55%, #db2777);
+  border: 0;
+  box-shadow: 0 12px 30px rgb(190 24 93 / 0.18);
+}
+
+.today-eyebrow { font-size: .65rem; letter-spacing: .12em; font-weight: 800; opacity: .78; }
+.today-mission h2 { font-size: 1rem; margin-top: .15rem; }
+.today-mission p { font-size: .75rem; margin-top: .2rem; opacity: .82; }
+.today-status-grid { display: grid; grid-template-columns: repeat(6, minmax(56px, 1fr)); gap: .45rem; }
+.today-status-item { text-align: center; padding: .55rem .25rem; border-radius: .65rem; background: rgb(255 255 255 / .11); border: 1px solid rgb(255 255 255 / .14); }
+.today-status-item strong { display: block; font-size: 1.05rem; }
+.today-status-item span { display: block; font-size: .65rem; opacity: .78; }
+.today-status-item.is-complete { background: rgb(16 185 129 / .3); }
+
+.mission-card { padding: .85rem; background: linear-gradient(145deg, #fff, #fff7fb); border: 1px solid var(--brand-200); border-radius: var(--radius-lg); }
+.mission-head { display: flex; justify-content: space-between; gap: .75rem; align-items: center; }
+.mission-level { font-size: .72rem; font-weight: 800; color: var(--brand-700); }
+.mission-next { font-size: .72rem; color: var(--text-muted); text-align: right; }
+.mission-track { height: 7px; margin: .65rem 0; overflow: hidden; border-radius: 999px; background: var(--brand-100); }
+.mission-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--brand-500), #8b5cf6); transition: width .25s ease; }
+.mission-steps { display: grid; grid-template-columns: repeat(8, 1fr); gap: .3rem; }
+.mission-step { min-width: 0; text-align: center; color: var(--text-subtle); }
+.mission-step b { display: grid; place-items: center; width: 23px; height: 23px; margin: 0 auto .2rem; border: 1px solid var(--border-strong); border-radius: 50%; font-size: .65rem; background: #fff; }
+.mission-step span { display: block; overflow: hidden; text-overflow: ellipsis; font-size: .58rem; white-space: nowrap; }
+.mission-step.done { color: #047857; }
+.mission-step.done b { color: #fff; border-color: #10b981; background: #10b981; }
+.mission-step.current { color: var(--brand-700); font-weight: 700; }
+.mission-step.current b { border-color: var(--brand-500); box-shadow: 0 0 0 3px var(--brand-100); }
+
+.handoff-row { display: flex; gap: .55rem; align-items: center; padding: .55rem .65rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: #fff; }
+.handoff-copy { min-width: 0; flex: 1; }
+.handoff-copy strong { display: block; font-size: .78rem; }
+.handoff-copy span { display: block; font-size: .68rem; color: var(--text-muted); }
+.whatsapp-icon-btn { width: 34px; height: 34px; padding: 0; flex: 0 0 34px; border: 0; border-radius: 50%; color: #fff; background: #22c55e; box-shadow: 0 5px 12px rgb(34 197 94 / .22); }
+.whatsapp-icon-btn:hover { background: #16a34a; transform: translateY(-1px); }
+
+@media (max-width: 900px) {
+  .today-mission { grid-template-columns: 1fr; }
+  .today-status-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
 .metric-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
