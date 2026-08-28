@@ -152,11 +152,12 @@ import Layout from '../layouts/Layout.astro';
           const name = safeVal(item.editor || item.name || item.editorName);
           const openLoad = item.openLoad !== undefined ? Number(item.openLoad) : 0;
           const dailyCapacity = item.dailyCapacity !== undefined ? Number(item.dailyCapacity) : 5;
-          const available = item.available !== false;
+          const active = item.active !== false;
+          const available = active && item.available !== false;
           const priorityRank = safeVal(item.topPriorityRank);
           const backup = Boolean(item.emergencyBackup);
 
-          return { name, openLoad, dailyCapacity, available, priorityRank, backup };
+          return { name, openLoad, dailyCapacity, active, available, priorityRank, backup };
         });
       }
 
@@ -223,7 +224,7 @@ import Layout from '../layouts/Layout.astro';
                   ${editor.openLoad} <span style="font-size: 0.75rem; font-weight: 500; color: var(--text-muted);">/ ${editor.dailyCapacity} max</span>
                 </div>
               </div>
-              ${editor.backup ? '<span class="chip chip-purple" style="font-size: 0.6875rem;">Backup Ready</span>' : ''}
+              ${editor.backup ? '<span class="chip chip-purple" style="font-size: 0.6875rem;">Emergency Backup</span>' : '<span style="font-size:0.6875rem;color:var(--text-subtle);">Primary queue</span>'}
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -247,7 +248,7 @@ import Layout from '../layouts/Layout.astro';
             <td><span style="font-weight: 600;">${editor.dailyCapacity} / day</span></td>
             <td><span class="chip ${editor.available ? 'chip-emerald' : 'chip-default'}">${editor.available ? 'Available' : 'Offline'}</span></td>
             <td><span class="font-mono" style="font-size: 0.75rem; color: var(--text-muted);">${editor.priorityRank}</span></td>
-            <td>${editor.backup ? '<span class="chip chip-purple" style="font-size: 0.6875rem;">Backup Enabled</span>' : '—'}</td>
+            <td>${editor.backup ? '<span class="chip chip-purple" style="font-size: 0.6875rem;">Emergency Backup</span>' : '<span style="color:var(--text-subtle);">No</span>'}</td>
           `;
           tbody.appendChild(tr);
         });

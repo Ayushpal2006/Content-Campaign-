@@ -622,6 +622,55 @@ html, body {
   gap: 0.875rem;
 }
 
+.manager-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.manager-field input,
+.manager-field textarea,
+.manager-field select {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--text-main);
+  padding: 0.58rem 0.7rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: normal;
+}
+
+.manager-field textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.manager-field input:focus,
+.manager-field textarea:focus,
+.manager-field select:focus {
+  outline: 2px solid var(--brand-100);
+  border-color: var(--brand-600);
+}
+
+.manager-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (max-width: 560px) {
+  .manager-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Skeleton Loading */
 .skeleton {
   background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);

@@ -1,6 +1,20 @@
 // Types for Infinity Operations Frontend & Adapter
 
-export type ActionType = 'bootstrap' | 'dashboard' | 'videos' | 'video' | 'editor_load' | 'detect_raw';
+export type ActionType =
+  | 'bootstrap'
+  | 'dashboard'
+  | 'videos'
+  | 'video'
+  | 'editor_load'
+  | 'detect_raw'
+  | 'create_video'
+  | 'update_script'
+  | 'approve_script'
+  | 'assign_editor'
+  | 'detect_final'
+  | 'qc_approve'
+  | 'qc_changes'
+  | 'mark_uploaded';
 
 export interface ApiResponse<T = unknown> {
   ok?: boolean;
@@ -54,6 +68,8 @@ export interface VideoItem {
   sla: string;
   rawAvailable: boolean | string;
   finalAvailable: boolean | string;
+  rawFolderAvailable?: boolean;
+  finalFolderAvailable?: boolean;
   rawLink?: string;
   finalLink?: string;
   updatedAt?: string;
@@ -72,6 +88,11 @@ export interface VideoDetail {
   rawFileLink?: string;
   finalFileLink?: string;
   qcNotes: string;
+  qcStatus?: string;
+  account?: string;
+  postUrl?: string;
+  posted?: boolean;
+  scriptReady?: boolean;
   whatsappLink?: string;
   timestamps: Array<{ label: string; value: string }>;
   rawRecord: Record<string, unknown>;

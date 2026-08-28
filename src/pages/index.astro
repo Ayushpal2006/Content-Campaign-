@@ -174,7 +174,9 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           if (byStatus['Editing'] !== undefined) addMetricCard('In Editing', byStatus['Editing'], 'badge-amber');
           if (byStatus['QC Pending'] !== undefined) addMetricCard('QC Pending', byStatus['QC Pending'], 'badge-purple');
           if (byStatus['Script Ready'] !== undefined) addMetricCard('Script Ready', byStatus['Script Ready'], 'badge-blue');
-          if (byStatus['Approved'] !== undefined) addMetricCard('Approved', byStatus['Approved'], 'badge-emerald');
+          if (byStatus['Changes'] !== undefined) addMetricCard('Changes Required', byStatus['Changes'], 'badge-rose');
+          if (byStatus['Approved'] !== undefined) addMetricCard('Ready to Post', byStatus['Approved'], 'badge-emerald');
+          if (byStatus['Uploaded'] !== undefined) addMetricCard('Uploaded', byStatus['Uploaded'], 'badge-emerald');
           if (byStatus['Unassigned'] !== undefined) addMetricCard('Unassigned', byStatus['Unassigned'], 'badge-rose');
         }
 
