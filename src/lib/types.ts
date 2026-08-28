@@ -57,6 +57,9 @@ export interface DashboardData {
   pipeline: PipelineStage[];
   rawSummary?: Record<string, unknown>;
   lastUpdated?: string;
+  todayByStatus?: Record<string, number>;
+  todayTotal?: number;
+  todayUploaded?: number;
 }
 
 export interface VideoItem {
@@ -94,6 +97,7 @@ export interface VideoDetail {
   posted?: boolean;
   scriptReady?: boolean;
   whatsappLink?: string;
+  rawCoordinatorWhatsAppLink?: string;
   timestamps: Array<{ label: string; value: string }>;
   rawRecord: Record<string, unknown>;
 }
