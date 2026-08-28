@@ -13,6 +13,14 @@ const ALLOWED_ACTIONS = new Set([
   'video',
   'editor_load',
   'detect_raw',
+  'create_video',
+  'update_script',
+  'approve_script',
+  'assign_editor',
+  'detect_final',
+  'qc_approve',
+  'qc_changes',
+  'mark_uploaded',
 ]);
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -83,6 +91,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000);
 
+    const upstreamStartedAt = Date.now();
     const upstreamResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -120,6 +129,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Server-Timing': `apps-script;dur=${Date.now() - upstreamStartedAt}`,
       },
     });
   } catch (err: unknown) {

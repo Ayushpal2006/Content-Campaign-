@@ -19,7 +19,7 @@ Google Sheet & Google Drive
 ### Key Architectural Tenets
 1. **Zero Client Secret Exposure**: `APPS_SCRIPT_API_URL` and `INFINITY_API_TOKEN` are stored exclusively in Cloudflare Pages environment secrets and never bundled into client JavaScript.
 2. **Session Security**: Session tokens are signed using HMAC-SHA256 with `SESSION_SECRET` via the Web Crypto API, transmitted via `HttpOnly`, `Secure`, `SameSite=Strict` cookies.
-3. **Strict Action Allowlist**: Only supported API actions are proxied (`bootstrap`, `dashboard`, `videos`, `video`, `editor_load`, `detect_raw`).
+3. **Strict Action Allowlist**: Only the documented read and manager workflow actions are proxied. Unknown actions are rejected before reaching Apps Script.
 4. **Data Normalization & Resilience**: An adapter layer normalizes responses, ensuring that missing or null fields render safely as `"—"` without fabricating data.
 
 ---
@@ -119,6 +119,25 @@ All requests to `/api/infinity` forward only the following exact actions to the 
 * `video`: Returns detailed fields for a specific video ID (`videoId`).
 * `editor_load`: Returns editor workload, capacity, and active task distribution.
 * `detect_raw`: Triggers asynchronous Google Drive RAW file detection for a given `videoId`.
+* `create_video`: Creates a Script Pending video row.
+* `update_script`: Saves manager script, talent, priority, and publish-date edits before production starts.
+* `approve_script`: Marks the script ready and asks the existing backend workflow to create/reuse Drive folders.
+* `assign_editor`: Assigns or reassigns an active editor through the existing load rules.
+* `detect_final`: Checks only the selected video's FINAL folder and moves it to QC Pending when a new file exists.
+* `qc_approve`: Approves the current FINAL revision.
+* `qc_changes`: Requests changes; non-empty QC notes are required.
+* `mark_uploaded`: Records account and post URL after QC approval.
+
+Read-heavy dashboard actions use a 15-second Apps Script cache. Every successful manager write invalidates that cache, so the UI avoids repeated full-sheet reads without showing stale workflow changes.
+
+## Apps Script activation
+
+The complete manager API add-on is also kept in `apps-script/manager-api-addon.js` for review. The canonical Google Doc contains the integrated complete source. A Google Doc edit does **not** update the live bound Apps Script project automatically:
+
+1. Copy the complete latest canonical source into the bound Apps Script `Code.gs` and save it.
+2. Do **not** run `setupAllInfinityOperations()` for this update.
+3. Deploy the web app as a new version while keeping the existing execute/access settings.
+4. Keep the same `APPS_SCRIPT_API_URL` when updating the existing deployment.
 
 ---
 

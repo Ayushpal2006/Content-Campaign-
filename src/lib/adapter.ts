@@ -300,8 +300,10 @@ export function normalizeVideosData(raw: unknown): VideoItem[] {
     const finalFileUrl = safeString(getProp(obj, 'finalFileUrl', 'finalLink', 'finalUrl'));
     const finalFolderUrl = safeString(getProp(obj, 'finalFolderUrl', 'finalFolder'));
 
-    const rawAvailable = rawFileUrl !== '—' || rawFolderUrl !== '—';
-    const finalAvailable = finalFileUrl !== '—' || finalFolderUrl !== '—';
+    // A folder is only an upload destination. It must not be shown as a
+    // detected asset until an actual file URL is present.
+    const rawAvailable = rawFileUrl !== '—';
+    const finalAvailable = finalFileUrl !== '—';
 
     const updatedAt = safeString(getProp(obj, 'stageUpdatedAt', 'assignmentUpdatedAt', 'updatedAt'));
 
@@ -314,6 +316,8 @@ export function normalizeVideosData(raw: unknown): VideoItem[] {
       sla,
       rawAvailable,
       finalAvailable,
+      rawFolderAvailable: rawFolderUrl !== '—',
+      finalFolderAvailable: finalFolderUrl !== '—',
       rawLink: rawFileUrl !== '—' ? rawFileUrl : (rawFolderUrl !== '—' ? rawFolderUrl : undefined),
       finalLink: finalFileUrl !== '—' ? finalFileUrl : (finalFolderUrl !== '—' ? finalFolderUrl : undefined),
       updatedAt: updatedAt !== '—' ? safeDate(updatedAt) : undefined,
@@ -358,6 +362,11 @@ export function normalizeVideoDetailData(raw: unknown, defaultId = ''): VideoDet
   const sla = safeString(getProp(obj, 'slaStatus', 'sla', 'slaState'));
   
   const qcNotes = safeString(getProp(obj, 'qcChangeNotes', 'qcNotes', 'qc_notes', 'notes', 'recordingNotes', 'remarks'));
+  const qcStatus = safeString(getProp(obj, 'qcStatus', 'qc_status'));
+  const account = safeString(getProp(obj, 'account'));
+  const postUrl = safeString(getProp(obj, 'postUrl', 'post_url'));
+  const posted = Boolean(getProp(obj, 'posted', 'posted?'));
+  const scriptReady = Boolean(getProp(obj, 'scriptReady', 'script_ready'));
 
   const rawFolder = safeString(getProp(obj, 'rawFolderUrl', 'rawFolder', 'driveFolderUrl'));
   const finalFolder = safeString(getProp(obj, 'finalFolderUrl', 'finalFolder'));
@@ -393,6 +402,11 @@ export function normalizeVideoDetailData(raw: unknown, defaultId = ''): VideoDet
     rawFileLink: rawFileLink !== '—' ? rawFileLink : undefined,
     finalFileLink: finalFileLink !== '—' ? finalFileLink : undefined,
     qcNotes,
+    qcStatus: qcStatus !== '—' ? qcStatus : undefined,
+    account: account !== '—' ? account : undefined,
+    postUrl: postUrl !== '—' ? postUrl : undefined,
+    posted,
+    scriptReady,
     whatsappLink: whatsappLink !== '—' ? whatsappLink : undefined,
     timestamps,
     rawRecord: obj,

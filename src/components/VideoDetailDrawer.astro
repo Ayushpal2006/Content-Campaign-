@@ -47,10 +47,25 @@
       </div>
     </div>
 
-    <!-- Script / Hook Box -->
+    <!-- Manager script workspace -->
     <div id="drawer-script-section" style="display: flex; flex-direction: column; gap: 0.375rem;">
-      <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Script & Production Notes</span>
-      <div id="drawer-script-text" style="font-size: 0.8125rem; color: var(--text-main); background: #fff; padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); line-height: 1.4; max-height: 160px; overflow-y: auto; white-space: pre-wrap;">—</div>
+      <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Script Workspace</span>
+      <label class="manager-field">Script
+        <textarea id="drawer-script-input" rows="7" placeholder="Write or update the script..."></textarea>
+      </label>
+      <div class="manager-action-grid">
+        <button id="save-script-btn" class="btn btn-secondary" onclick="saveManagerScript()">Save Script</button>
+        <button id="approve-script-btn" class="btn btn-primary" onclick="approveManagerScript()">Approve Script ✓</button>
+      </div>
+    </div>
+
+    <!-- Assignment -->
+    <div style="display:flex; flex-direction:column; gap:0.45rem;">
+      <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Editor Assignment</span>
+      <label class="manager-field">Editor
+        <select id="drawer-editor-select"><option value="">Choose editor</option></select>
+      </label>
+      <button id="assign-editor-btn" class="btn btn-secondary" onclick="assignManagerEditor()">Assign / Reassign Editor</button>
     </div>
 
     <!-- Drive & External Assets Links -->
@@ -99,17 +114,41 @@
         <!-- Filled dynamically -->
       </div>
     </div>
+
+    <!-- Drive detection -->
+    <div style="display:flex; flex-direction:column; gap:0.45rem;">
+      <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Drive Detection</span>
+      <div class="manager-action-grid">
+        <button id="detect-raw-btn" class="btn btn-secondary" onclick="openDetectRawModal()">Detect RAW</button>
+        <button id="detect-final-btn" class="btn btn-secondary" onclick="detectManagerFinal()">Detect FINAL</button>
+      </div>
+    </div>
+
+    <!-- QC decision -->
+    <div style="display:flex; flex-direction:column; gap:0.45rem;">
+      <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">QC Decision</span>
+      <label class="manager-field">Change notes (required for Changes)
+        <textarea id="drawer-qc-notes" rows="3" placeholder="Explain exact changes for the editor..."></textarea>
+      </label>
+      <div class="manager-action-grid">
+        <button id="qc-changes-btn" class="btn btn-secondary" onclick="submitManagerQcChanges()">Request Changes</button>
+        <button id="qc-approve-btn" class="btn btn-primary" onclick="submitManagerQcApprove()">Approve QC ✓</button>
+      </div>
+    </div>
+
+    <!-- Publishing confirmation -->
+    <div style="display:flex; flex-direction:column; gap:0.45rem;">
+      <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Publishing Confirmation</span>
+      <label class="manager-field">Account<input id="drawer-account" placeholder="Assigned account" /></label>
+      <label class="manager-field">Published Post URL<input id="drawer-post-url" type="url" placeholder="https://instagram.com/reel/..." /></label>
+      <button id="mark-uploaded-btn" class="btn btn-primary" onclick="markManagerUploaded()">Confirm Uploaded</button>
+    </div>
+
+    <div id="manager-action-message" style="display:none; padding:0.65rem 0.75rem; border-radius:var(--radius-md); font-size:0.8125rem;"></div>
   </div>
 
   <div class="drawer-footer">
-    <button id="detect-raw-btn" class="btn btn-primary" onclick="openDetectRawModal()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-      <span>Detect RAW Now</span>
-    </button>
+    <span style="font-size:0.75rem; color:var(--text-muted);">All write actions are validated by the Apps Script workflow.</span>
   </div>
 </div>
 
@@ -143,6 +182,8 @@
 <script is:inline>
   let activeSelectedVideoId = '';
   let isDetectRawRunning = false;
+  let isManagerActionRunning = false;
+  let editorOptionsLoaded = false;
 
   function openVideoDrawer(videoId) {
     if (!videoId || videoId === '—') return;
@@ -162,7 +203,7 @@
     if (content) content.style.display = 'none';
 
     // Fetch video detail
-    fetch('/api/infinity', {
+    return fetch('/api/infinity', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
@@ -221,9 +262,17 @@
     document.getElementById('drawer-teacher').textContent = teacher;
     document.getElementById('drawer-editor').textContent = editor !== '—' ? editor : 'Unassigned';
 
-    // Script text
-    const scriptEl = document.getElementById('drawer-script-text');
-    if (scriptEl) scriptEl.textContent = scriptText;
+    // Manager fields
+    const scriptEl = document.getElementById('drawer-script-input');
+    const qcNotesEl = document.getElementById('drawer-qc-notes');
+    const accountEl = document.getElementById('drawer-account');
+    const postUrlEl = document.getElementById('drawer-post-url');
+    if (scriptEl) scriptEl.value = scriptText === '—' ? '' : scriptText;
+    if (qcNotesEl) qcNotesEl.value = safeVal(obj.qcChangeNotes) === '—' ? '' : safeVal(obj.qcChangeNotes);
+    if (accountEl) accountEl.value = safeVal(obj.account) === '—' ? '' : safeVal(obj.account);
+    if (postUrlEl) postUrlEl.value = safeVal(obj.postUrl) === '—' ? '' : safeVal(obj.postUrl);
+    loadEditorOptions(editor);
+    updateManagerActionState(obj);
 
     // Status Chip
     const statusChip = document.getElementById('drawer-status-chip');
@@ -300,6 +349,126 @@
         timelineContainer.innerHTML = '<div style="font-size: 0.8125rem; color: var(--text-subtle); padding: 0.25rem 0;">No timeline events recorded.</div>';
       }
     }
+  }
+
+  async function loadEditorOptions(selectedEditor) {
+    const select = document.getElementById('drawer-editor-select');
+    if (!select) return;
+    if (editorOptionsLoaded && select.options.length > 1) {
+      select.value = selectedEditor === '—' ? '' : selectedEditor;
+      return;
+    }
+    try {
+      const res = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'editor_load'}) });
+      const data = await res.json().catch(() => ({}));
+      const list = data.result || data.editorLoad || data.editors || data.data || [];
+      select.innerHTML = '<option value="">Choose editor</option>';
+      if (Array.isArray(list)) {
+        list.filter(item => item && (item.active !== false)).forEach(item => {
+          const name = String(item.editor || item.name || '').trim();
+          if (!name) return;
+          const option = document.createElement('option');
+          option.value = name;
+          option.textContent = `${name} — ${Number(item.openLoad || 0)}/${Number(item.dailyCapacity || 0)} open`;
+          select.appendChild(option);
+        });
+      }
+      editorOptionsLoaded = true;
+      select.value = selectedEditor === '—' ? '' : selectedEditor;
+    } catch (_) {
+      select.innerHTML = '<option value="">Editor list unavailable</option>';
+    }
+  }
+
+  function updateManagerActionState(obj) {
+    const status = String(obj.productionStatus || '').trim();
+    const hasRaw = Boolean(obj.rawFileUrl);
+    const posted = Boolean(obj.posted) || status === 'Uploaded';
+    const setDisabled = (id, disabled, title) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = Boolean(disabled);
+      el.title = disabled ? title : '';
+    };
+    setDisabled('save-script-btn', hasRaw || posted, hasRaw ? 'Script is locked after RAW detection.' : 'Uploaded history is locked.');
+    setDisabled('approve-script-btn', hasRaw || posted || !String(obj.script || '').trim(), 'Approval requires an editable non-empty script before RAW detection.');
+    setDisabled('assign-editor-btn', posted, 'Uploaded history is locked.');
+    setDisabled('detect-raw-btn', !obj.rawFolderUrl || posted, 'Approve the script to create the RAW folder first.');
+    setDisabled('detect-final-btn', !['Editing','Changes'].includes(status), 'FINAL detection is available only during Editing or Changes.');
+    setDisabled('qc-changes-btn', status !== 'QC Pending', 'QC actions require QC Pending status.');
+    setDisabled('qc-approve-btn', status !== 'QC Pending', 'QC actions require QC Pending status.');
+    setDisabled('mark-uploaded-btn', status !== 'Approved', 'The video must be QC Approved first.');
+  }
+
+  function managerErrorMessage(data, fallback) {
+    if (data && data.error && typeof data.error === 'object' && data.error.message) return data.error.message;
+    if (data && typeof data.error === 'string') return data.error;
+    return fallback;
+  }
+
+  async function runManagerAction(action, payload, successMessage) {
+    if (!activeSelectedVideoId || isManagerActionRunning) return null;
+    isManagerActionRunning = true;
+    const box = document.getElementById('manager-action-message');
+    if (box) {
+      box.style.display = 'block'; box.style.background = 'var(--bg-subtle)'; box.style.color = 'var(--text-main)'; box.textContent = 'Working...';
+    }
+    try {
+      const res = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action, videoId:activeSelectedVideoId, requestId:crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), ...payload}) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) throw new Error(managerErrorMessage(data, 'Manager action failed'));
+      if (box) { box.style.background = '#f0fdf4'; box.style.color = '#15803d'; box.textContent = successMessage; }
+      showToast(successMessage, 'success');
+      await openVideoDrawer(activeSelectedVideoId);
+      if (typeof window.__refreshOperationsData === 'function') window.__refreshOperationsData();
+      return data;
+    } catch (error) {
+      if (box) { box.style.background = '#fff1f2'; box.style.color = '#be123c'; box.textContent = error.message || 'Manager action failed'; }
+      showToast(error.message || 'Manager action failed', 'error');
+      return null;
+    } finally {
+      isManagerActionRunning = false;
+    }
+  }
+
+  function saveManagerScript() {
+    const script = document.getElementById('drawer-script-input')?.value.trim() || '';
+    if (!script) { showToast('Script cannot be empty', 'error'); return; }
+    return runManagerAction('update_script', { script }, 'Script saved. Approval is required before production.');
+  }
+
+  function approveManagerScript() {
+    const script = document.getElementById('drawer-script-input')?.value.trim() || '';
+    if (!script) { showToast('Script cannot be empty', 'error'); return; }
+    return runManagerAction('approve_script', { script }, 'Script approved and Drive folders prepared.');
+  }
+
+  function assignManagerEditor() {
+    const editor = document.getElementById('drawer-editor-select')?.value || '';
+    if (!editor) { showToast('Choose an editor', 'error'); return; }
+    return runManagerAction('assign_editor', { editor }, 'Editor assignment updated.');
+  }
+
+  function detectManagerFinal() {
+    return runManagerAction('detect_final', {}, 'FINAL detection completed.');
+  }
+
+  function submitManagerQcApprove() {
+    const notes = document.getElementById('drawer-qc-notes')?.value.trim() || '';
+    return runManagerAction('qc_approve', { notes }, 'QC approved. Video is ready for publishing.');
+  }
+
+  function submitManagerQcChanges() {
+    const notes = document.getElementById('drawer-qc-notes')?.value.trim() || '';
+    if (!notes) { showToast('Change notes are required', 'error'); return; }
+    return runManagerAction('qc_changes', { notes }, 'Changes requested and sent back to editing.');
+  }
+
+  function markManagerUploaded() {
+    const account = document.getElementById('drawer-account')?.value.trim() || '';
+    const postUrl = document.getElementById('drawer-post-url')?.value.trim() || '';
+    if (!account || !postUrl) { showToast('Account and Post URL are required', 'error'); return; }
+    return runManagerAction('mark_uploaded', { account, postUrl }, 'Upload confirmed and history recorded.');
   }
 
   function openDetectRawModal() {
@@ -404,4 +573,11 @@
   window.openDetectRawModal = openDetectRawModal;
   window.closeDetectRawModal = closeDetectRawModal;
   window.executeDetectRaw = executeDetectRaw;
+  window.saveManagerScript = saveManagerScript;
+  window.approveManagerScript = approveManagerScript;
+  window.assignManagerEditor = assignManagerEditor;
+  window.detectManagerFinal = detectManagerFinal;
+  window.submitManagerQcApprove = submitManagerQcApprove;
+  window.submitManagerQcChanges = submitManagerQcChanges;
+  window.markManagerUploaded = markManagerUploaded;
 </script>
