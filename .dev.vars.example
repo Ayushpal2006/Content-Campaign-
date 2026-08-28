@@ -1,0 +1,5 @@
+# Cloudflare Pages Functions Secrets (configure in Cloudflare Pages Settings or local .dev.vars)
+APPS_SCRIPT_API_URL=
+INFINITY_API_TOKEN=
+APP_ACCESS_CODE=
+SESSION_SECRET=

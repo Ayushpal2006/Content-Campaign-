@@ -1,0 +1,179 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  activeTab?: 'dashboard' | 'videos' | 'editors' | 'login';
+}
+
+const { title = 'Infinity Operations', activeTab = 'dashboard' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title} — Infinity Operations</title>
+    <meta name="description" content="Production Operations Dashboard for Video Production Pipelines." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+  </head>
+  <body>
+    {activeTab === 'login' ? (
+      <slot />
+    ) : (
+      <div class="app-container">
+        <!-- Mobile backdrop -->
+        <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="toggleMobileSidebar()"></div>
+
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="sidebar">
+          <div class="sidebar-header">
+            <div class="brand-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+            </div>
+            <div class="brand-info">
+              <span class="brand-title">Infinity Ops</span>
+              <span class="brand-subtitle">Control Tower</span>
+            </div>
+          </div>
+
+          <nav class="sidebar-nav">
+            <a href="/" class={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                <rect x="3" y="14" width="7" height="7" rx="1.5" />
+              </svg>
+              <span>Control Tower</span>
+            </a>
+
+            <a href="/videos" class={`nav-link ${activeTab === 'videos' ? 'active' : ''}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="23 7 16 12 23 17 23 7" />
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+              </svg>
+              <span>Videos</span>
+            </a>
+
+            <a href="/editor-load" class={`nav-link ${activeTab === 'editors' ? 'active' : ''}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <span>Editor Load</span>
+            </a>
+          </nav>
+
+          <div class="sidebar-footer">
+            <div class="status-pill">
+              <span class="status-dot"></span>
+              <span>Ops Pipeline Active</span>
+            </div>
+            <button id="logout-btn" class="logout-btn" onclick="handleLogout()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span>Log Out</span>
+            </button>
+          </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <div class="main-content">
+          <header class="top-bar">
+            <div class="top-bar-left">
+              <button class="mobile-menu-toggle" onclick="toggleMobileSidebar()" aria-label="Toggle navigation">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+              <h1 class="page-heading">{title}</h1>
+            </div>
+
+            <div class="top-bar-right">
+              <div id="refresh-indicator" class="refresh-indicator">
+                <span id="last-updated-text">Loaded</span>
+              </div>
+              <button id="global-refresh-btn" class="btn btn-secondary btn-sm" onclick="triggerPageRefresh()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                <span>Refresh</span>
+              </button>
+            </div>
+          </header>
+
+          <main class="content-body">
+            <slot />
+          </main>
+        </div>
+      </div>
+    )}
+
+    <!-- Toast Notification Container -->
+    <div id="toast-root" class="toast-container"></div>
+
+    <script is:inline>
+      function toggleMobileSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (sidebar) sidebar.classList.toggle('mobile-open');
+        if (backdrop) backdrop.classList.toggle('mobile-open');
+      }
+
+      function showToast(message, type = 'info') {
+        const root = document.getElementById('toast-root');
+        if (!root) return;
+        const toast = document.createElement('div');
+        toast.className = `toast ${type === 'error' ? 'toast-error' : type === 'success' ? 'toast-success' : ''}`;
+        toast.textContent = message;
+        root.appendChild(toast);
+        setTimeout(() => {
+          toast.remove();
+        }, 4000);
+      }
+
+      async function handleLogout() {
+        try {
+          await fetch('/api/auth/logout', { method: 'POST' });
+        } finally {
+          window.location.href = '/login';
+        }
+      }
+
+      function triggerPageRefresh() {
+        if (typeof window.__refreshOperationsData === 'function') {
+          window.__refreshOperationsData();
+        } else {
+          window.location.reload();
+        }
+      }
+
+      // Check session on page load if not login page
+      (function() {
+        if (window.location.pathname !== '/login') {
+          fetch('/api/auth/session')
+            .then(res => res.json())
+            .then(data => {
+              if (!data.authenticated) {
+                window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+              }
+            })
+            .catch(() => {});
+        }
+      })();
+    </script>
+  </body>
+</html>

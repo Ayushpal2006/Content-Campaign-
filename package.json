@@ -1,0 +1,28 @@
+{
+  "name": "infinity-operations",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Infinity Operations Dashboard on Astro and Cloudflare Pages Functions",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "dev:pages": "astro build && wrangler pages dev dist",
+    "build": "astro build",
+    "check": "astro check",
+    "preview": "astro preview",
+    "deploy": "wrangler pages deploy dist --project-name infinity-operations",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "astro": "^7.2.9"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@cloudflare/workers-types": "^5.20260827.1",
+    "@types/node": "^26.4.0",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.127.0"
+  }
+}

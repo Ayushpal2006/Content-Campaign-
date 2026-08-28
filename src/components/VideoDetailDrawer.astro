@@ -1,0 +1,387 @@
+---
+// Video Detail Drawer & Detect RAW Confirmation Modal
+---
+
+<div id="video-drawer-backdrop" class="drawer-backdrop" onclick="closeVideoDrawer()"></div>
+
+<div id="video-drawer" class="drawer">
+  <div class="drawer-header">
+    <div>
+      <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--brand-700); letter-spacing: 0.05em;">Video Operations</span>
+      <h2 id="drawer-video-id" class="font-mono" style="font-size: 1.125rem; font-weight: 700; color: var(--text-main);">—</h2>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="closeVideoDrawer()" aria-label="Close drawer" style="padding: 0.35rem 0.5rem;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </button>
+  </div>
+
+  <div id="drawer-loading" class="drawer-body" style="display: none;">
+    <div class="skeleton skeleton-title"></div>
+    <div class="skeleton skeleton-text"></div>
+    <div class="skeleton skeleton-text"></div>
+    <div class="skeleton skeleton-metric" style="margin-top: 1rem;"></div>
+  </div>
+
+  <div id="drawer-content" class="drawer-body">
+    <!-- Title & Status Section -->
+    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+      <h3 id="drawer-title" style="font-size: 1rem; font-weight: 700; color: var(--text-main); line-height: 1.3;">—</h3>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+        <span id="drawer-status-chip" class="chip chip-default">—</span>
+        <span id="drawer-sla-chip" class="chip chip-default" style="display: none;">—</span>
+      </div>
+    </div>
+
+    <!-- Metadata Grid -->
+    <div class="card" style="padding: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-subtle);">
+      <div>
+        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Teacher / Talent</div>
+        <div id="drawer-teacher" style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); margin-top: 2px;">—</div>
+      </div>
+      <div>
+        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Assigned Editor</div>
+        <div id="drawer-editor" style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); margin-top: 2px;">—</div>
+      </div>
+    </div>
+
+    <!-- Drive & External Assets Links -->
+    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+      <span style="font-size: 0.8125rem; font-weight: 700; color: var(--text-main);">Drive Folders & Assets</span>
+      
+      <div id="drawer-links-container" style="display: flex; flex-direction: column; gap: 0.375rem;">
+        <div id="drawer-raw-folder-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">RAW Folder</span>
+          <a id="drawer-raw-folder-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: var(--brand-700);">Open Drive ↗</a>
+        </div>
+
+        <div id="drawer-raw-file-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">RAW Video File</span>
+          <a id="drawer-raw-file-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: var(--brand-700);">View File ↗</a>
+        </div>
+
+        <div id="drawer-final-folder-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">FINAL Folder</span>
+          <a id="drawer-final-folder-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: var(--brand-700);">Open Drive ↗</a>
+        </div>
+
+        <div id="drawer-final-file-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">FINAL Output File</span>
+          <a id="drawer-final-file-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: var(--brand-700);">View File ↗</a>
+        </div>
+
+        <div id="drawer-whatsapp-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">WhatsApp Discussion</span>
+          <a id="drawer-whatsapp-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: #059669;">Open Chat ↗</a>
+        </div>
+
+        <div id="drawer-no-links" style="font-size: 0.8125rem; color: var(--text-subtle); padding: 0.5rem 0;">No external links returned.</div>
+      </div>
+    </div>
+
+    <!-- QC Notes Section -->
+    <div id="drawer-qc-section" style="display: flex; flex-direction: column; gap: 0.375rem;">
+      <span style="font-size: 0.8125rem; font-weight: 700; color: var(--text-main);">QC Notes & Feedback</span>
+      <div id="drawer-qc-notes" style="font-size: 0.8125rem; color: var(--text-main); background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); line-height: 1.4; white-space: pre-wrap;">—</div>
+    </div>
+
+    <!-- Timeline & Timestamps -->
+    <div id="drawer-timeline-section" style="display: flex; flex-direction: column; gap: 0.375rem;">
+      <span style="font-size: 0.8125rem; font-weight: 700; color: var(--text-main);">Timeline & Activity</span>
+      <div id="drawer-timeline-container" style="display: flex; flex-direction: column; gap: 0.375rem;">
+        <!-- Filled dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <div class="drawer-footer">
+    <button id="detect-raw-btn" class="btn btn-primary" onclick="openDetectRawModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <span>Detect RAW Now</span>
+    </button>
+  </div>
+</div>
+
+<!-- Confirmation Modal for Detect RAW -->
+<div id="detect-raw-modal" class="modal-backdrop">
+  <div class="modal-card">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <div style="width: 36px; height: 36px; border-radius: var(--radius-full); background: var(--brand-100); color: var(--brand-700); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      </div>
+      <div>
+        <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-main);">Run RAW Video Detection?</h4>
+        <p style="font-size: 0.8125rem; color: var(--text-muted);">This scans Google Drive for video <span id="modal-video-id" class="font-mono" style="font-weight: 700; color: var(--brand-700);"></span> and updates metadata.</p>
+      </div>
+    </div>
+
+    <div id="modal-action-status" style="display: none; padding: 0.75rem; border-radius: var(--radius-md); font-size: 0.8125rem;"></div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+      <button id="modal-cancel-btn" class="btn btn-secondary" onclick="closeDetectRawModal()">Cancel</button>
+      <button id="modal-confirm-btn" class="btn btn-primary" onclick="executeDetectRaw()">
+        <span id="modal-confirm-text">Confirm & Run</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  let activeSelectedVideoId = '';
+
+  function openVideoDrawer(videoId) {
+    if (!videoId || videoId === '—') return;
+    activeSelectedVideoId = videoId;
+
+    const drawer = document.getElementById('video-drawer');
+    const backdrop = document.getElementById('video-drawer-backdrop');
+    const loading = document.getElementById('drawer-loading');
+    const content = document.getElementById('drawer-content');
+    const drawerVideoId = document.getElementById('drawer-video-id');
+
+    if (drawerVideoId) drawerVideoId.textContent = videoId;
+    if (drawer) drawer.classList.add('open');
+    if (backdrop) backdrop.classList.add('open');
+
+    if (loading) loading.style.display = 'block';
+    if (content) content.style.display = 'none';
+
+    // Fetch video detail
+    fetch('/api/infinity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'video', videoId: videoId })
+    })
+      .then(res => res.json())
+      .then(resData => {
+        populateVideoDrawer(resData, videoId);
+      })
+      .catch(() => {
+        showToast('Failed to load video details', 'error');
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+      });
+  }
+
+  function closeVideoDrawer() {
+    const drawer = document.getElementById('video-drawer');
+    const backdrop = document.getElementById('video-drawer-backdrop');
+    if (drawer) drawer.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('open');
+  }
+
+  function populateVideoDrawer(raw, videoId) {
+    const loading = document.getElementById('drawer-loading');
+    const content = document.getElementById('drawer-content');
+    if (loading) loading.style.display = 'none';
+    if (content) content.style.display = 'block';
+
+    const obj = raw.video || raw.data || raw.result || raw || {};
+
+    const safeVal = (v) => (v !== undefined && v !== null && String(v).trim() !== '' ? String(v).trim() : '—');
+
+    const id = safeVal(obj.id || obj.videoId || videoId);
+    const title = safeVal(obj.title || obj.topic || obj.name);
+    const teacher = safeVal(obj.teacher || obj.talent || obj.instructor);
+    const editor = safeVal(obj.editor || obj.assignedTo);
+    const status = safeVal(obj.status || obj.state || obj.currentStatus);
+    const sla = safeVal(obj.sla || obj.slaState || obj.dueDate);
+    const qcNotes = safeVal(obj.qcNotes || obj.qc_notes || obj.notes || obj.remarks || obj.feedback);
+
+    const rawFolder = obj.rawFolder || obj.rawFolderUrl || obj.raw_folder;
+    const rawFile = obj.rawFileLink || obj.rawLink || obj.rawUrl || obj.raw_url;
+    const finalFolder = obj.finalFolder || obj.finalFolderUrl || obj.final_folder;
+    const finalFile = obj.finalFileLink || obj.finalLink || obj.finalUrl || obj.final_url;
+    const whatsapp = obj.whatsappLink || obj.whatsapp || obj.chatUrl;
+
+    document.getElementById('drawer-video-id').textContent = id;
+    document.getElementById('drawer-title').textContent = title;
+    document.getElementById('drawer-teacher').textContent = teacher;
+    document.getElementById('drawer-editor').textContent = editor;
+
+    // Status Chip
+    const statusChip = document.getElementById('drawer-status-chip');
+    if (statusChip) {
+      statusChip.textContent = status;
+      const s = status.toLowerCase();
+      statusChip.className = 'chip ' + (
+        s.includes('approved') || s.includes('uploaded') || s.includes('done') ? 'chip-emerald' :
+        s.includes('overdue') || s.includes('blocked') || s.includes('error') ? 'chip-red' :
+        s.includes('qc') || s.includes('review') ? 'chip-purple' :
+        s.includes('change') || s.includes('revision') ? 'chip-rose' :
+        s.includes('editing') || s.includes('in progress') ? 'chip-amber' :
+        'chip-blue'
+      );
+    }
+
+    // SLA chip
+    const slaChip = document.getElementById('drawer-sla-chip');
+    if (slaChip) {
+      if (sla !== '—') {
+        slaChip.style.display = 'inline-flex';
+        slaChip.textContent = `SLA: ${sla}`;
+      } else {
+        slaChip.style.display = 'none';
+      }
+    }
+
+    // QC Notes
+    const qcNotesEl = document.getElementById('drawer-qc-notes');
+    if (qcNotesEl) {
+      qcNotesEl.textContent = qcNotes;
+    }
+
+    // External Links
+    let hasAnyLink = false;
+    const setLink = (rowId, linkId, url) => {
+      const row = document.getElementById(rowId);
+      const link = document.getElementById(linkId);
+      if (url && String(url).startsWith('http')) {
+        if (row) row.style.display = 'flex';
+        if (link) link.href = String(url);
+        hasAnyLink = true;
+      } else {
+        if (row) row.style.display = 'none';
+      }
+    };
+
+    setLink('drawer-raw-folder-row', 'drawer-raw-folder-link', rawFolder);
+    setLink('drawer-raw-file-row', 'drawer-raw-file-link', rawFile);
+    setLink('drawer-final-folder-row', 'drawer-final-folder-link', finalFolder);
+    setLink('drawer-final-file-row', 'drawer-final-file-link', finalFile);
+    setLink('drawer-whatsapp-row', 'drawer-whatsapp-link', whatsapp);
+
+    const noLinksEl = document.getElementById('drawer-no-links');
+    if (noLinksEl) {
+      noLinksEl.style.display = hasAnyLink ? 'none' : 'block';
+    }
+
+    // Timestamps
+    const timelineContainer = document.getElementById('drawer-timeline-container');
+    if (timelineContainer) {
+      timelineContainer.innerHTML = '';
+      const timestamps = [
+        { label: 'Created / Shoot', val: obj.createdAt || obj.created_at || obj.shootDate },
+        { label: 'RAW Detected', val: obj.rawDetectedAt || obj.raw_detected_at },
+        { label: 'Editing Started', val: obj.editingStartedAt || obj.editing_started_at },
+        { label: 'QC Submitted', val: obj.qcSubmittedAt || obj.qc_submitted_at },
+        { label: 'Approved At', val: obj.approvedAt || obj.approved_at },
+        { label: 'Uploaded At', val: obj.uploadedAt || obj.uploaded_at },
+        { label: 'Last Modified', val: obj.updatedAt || obj.lastUpdated }
+      ].filter(t => t.val);
+
+      if (timestamps.length > 0) {
+        timestamps.forEach(t => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display: flex; justify-content: space-between; font-size: 0.75rem; padding: 0.25rem 0; border-bottom: 1px dashed var(--border-subtle);';
+          row.innerHTML = `<span style="color: var(--text-muted); font-weight: 500;">${t.label}</span><span style="font-weight: 600; color: var(--text-main);">${safeVal(t.val)}</span>`;
+          timelineContainer.appendChild(row);
+        });
+      } else {
+        timelineContainer.innerHTML = '<div style="font-size: 0.8125rem; color: var(--text-subtle); padding: 0.25rem 0;">No timeline events recorded.</div>';
+      }
+    }
+  }
+
+  function openDetectRawModal() {
+    if (!activeSelectedVideoId || activeSelectedVideoId === '—') {
+      showToast('No valid video selected', 'error');
+      return;
+    }
+    const modal = document.getElementById('detect-raw-modal');
+    const modalVideoId = document.getElementById('modal-video-id');
+    const statusBox = document.getElementById('modal-action-status');
+    const confirmBtn = document.getElementById('modal-confirm-btn');
+    const confirmText = document.getElementById('modal-confirm-text');
+
+    if (modalVideoId) modalVideoId.textContent = activeSelectedVideoId;
+    if (statusBox) statusBox.style.display = 'none';
+    if (confirmBtn) confirmBtn.disabled = false;
+    if (confirmText) confirmText.textContent = 'Confirm & Run';
+    if (modal) modal.classList.add('open');
+  }
+
+  function closeDetectRawModal() {
+    const modal = document.getElementById('detect-raw-modal');
+    if (modal) modal.classList.remove('open');
+  }
+
+  async function executeDetectRaw() {
+    if (!activeSelectedVideoId) return;
+
+    const confirmBtn = document.getElementById('modal-confirm-btn');
+    const cancelBtn = document.getElementById('modal-cancel-btn');
+    const confirmText = document.getElementById('modal-confirm-text');
+    const statusBox = document.getElementById('modal-action-status');
+
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    if (confirmText) confirmText.textContent = 'Scanning Drive...';
+
+    if (statusBox) {
+      statusBox.style.display = 'block';
+      statusBox.style.background = 'var(--bg-subtle)';
+      statusBox.style.color = 'var(--text-main)';
+      statusBox.textContent = 'Contacting Apps Script engine to scan RAW folder...';
+    }
+
+    try {
+      const res = await fetch('/api/infinity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'detect_raw',
+          videoId: activeSelectedVideoId
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.error || 'Failed to detect RAW');
+      }
+
+      if (statusBox) {
+        statusBox.style.background = '#f0fdf4';
+        statusBox.style.color = '#15803d';
+        statusBox.textContent = data.message || 'RAW scan completed successfully.';
+      }
+
+      showToast('RAW Detection completed successfully!', 'success');
+
+      // Refresh drawer and page data
+      setTimeout(() => {
+        closeDetectRawModal();
+        openVideoDrawer(activeSelectedVideoId);
+        if (typeof window.__refreshOperationsData === 'function') {
+          window.__refreshOperationsData();
+        }
+      }, 1200);
+
+    } catch (err) {
+      if (statusBox) {
+        statusBox.style.background = '#fff1f2';
+        statusBox.style.color = '#be123c';
+        statusBox.textContent = err.message || 'Error occurred while detecting RAW.';
+      }
+      showToast(err.message || 'Detection failed', 'error');
+    } finally {
+      if (confirmBtn) confirmBtn.disabled = false;
+      if (cancelBtn) cancelBtn.disabled = false;
+      if (confirmText) confirmText.textContent = 'Confirm & Run';
+    }
+  }
+
+  // Expose to window for external row clicks
+  window.openVideoDrawer = openVideoDrawer;
+  window.closeVideoDrawer = closeVideoDrawer;
+</script>

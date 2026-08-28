@@ -1,0 +1,259 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Editor Load" activeTab="editors">
+  <!-- Controls Bar -->
+  <div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+    <div style="display: flex; flex-wrap: wrap; gap: 0.875rem; align-items: center; justify-content: space-between;">
+      <!-- Search Input -->
+      <div style="position: relative; flex: 1; min-width: 240px; max-width: 380px;">
+        <input
+          id="editor-search-input"
+          type="text"
+          placeholder="Filter editors by name..."
+          oninput="handleEditorSearch()"
+          style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.25rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff;"
+        />
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      </div>
+
+      <div style="font-size: 0.8125rem; color: var(--text-muted);">
+        Total Active Editors: <span id="total-editors-count" style="font-weight: 700; color: var(--text-main);">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error State -->
+  <div id="editors-error" class="error-state" style="display: none; margin-bottom: 1.5rem;">
+    <div style="font-weight: 700; font-size: 0.95rem;">Unable to load editor workloads</div>
+    <p id="editors-error-text" style="font-size: 0.8125rem; margin-top: 0.25rem;">Connection failed.</p>
+    <button class="btn btn-primary btn-sm" onclick="loadEditorData()" style="margin-top: 0.5rem;">
+      Retry
+    </button>
+  </div>
+
+  <!-- Loading Skeletons -->
+  <div id="editors-loading" style="display: block;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
+      <div class="skeleton skeleton-metric" style="height: 140px;"></div>
+      <div class="skeleton skeleton-metric" style="height: 140px;"></div>
+      <div class="skeleton skeleton-metric" style="height: 140px;"></div>
+    </div>
+  </div>
+
+  <!-- Dynamic Editor Content -->
+  <div id="editors-content" style="display: none;">
+    <!-- Cards Grid -->
+    <div id="editors-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+      <!-- Populated dynamically -->
+    </div>
+
+    <!-- Compact Table View -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Workload Summary</h2>
+      </div>
+      <div class="table-container">
+        <table class="compact-table">
+          <thead>
+            <tr>
+              <th>Editor Name</th>
+              <th>Active (In Progress)</th>
+              <th>In QC</th>
+              <th>Completed</th>
+              <th>Total Assigned</th>
+              <th>Status / Capacity</th>
+            </tr>
+          </thead>
+          <tbody id="editors-tbody">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="editors-empty" class="empty-state" style="display: none; margin-top: 1.5rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-subtle);">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+      </svg>
+      <p style="font-size: 0.875rem; font-weight: 600;">No editor workload records found.</p>
+    </div>
+  </div>
+
+  <script is:inline>
+    let rawEditorsList = [];
+
+    async function loadEditorData() {
+      const loading = document.getElementById('editors-loading');
+      const content = document.getElementById('editors-content');
+      const errorBox = document.getElementById('editors-error');
+      const errorText = document.getElementById('editors-error-text');
+      const lastUpdatedEl = document.getElementById('last-updated-text');
+
+      if (loading) loading.style.display = 'block';
+      if (content) content.style.display = 'none';
+      if (errorBox) errorBox.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/infinity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'editor_load' })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || 'Failed to fetch editor workload data');
+        }
+
+        const list = data.editors || data.editorLoad || data.data || data.result || (Array.isArray(data) ? data : []);
+        normalizeAndRenderEditors(list);
+
+        if (lastUpdatedEl) {
+          const d = new Date();
+          lastUpdatedEl.textContent = `Updated ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+        }
+
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+      } catch (err) {
+        if (loading) loading.style.display = 'none';
+        if (errorBox) {
+          if (errorText) errorText.textContent = err.message || 'Failed to load editor workloads.';
+          errorBox.style.display = 'block';
+        }
+      }
+    }
+
+    function safeVal(val) {
+      if (val === null || val === undefined) return '—';
+      const str = String(val).trim();
+      return str === '' ? '—' : str;
+    }
+
+    function normalizeAndRenderEditors(list) {
+      if (!Array.isArray(list)) {
+        rawEditorsList = [];
+      } else {
+        rawEditorsList = list.map(item => {
+          if (!item || typeof item !== 'object') {
+            return { name: '—', active: '—', qc: '—', completed: '—', total: '—', status: '—' };
+          }
+
+          const name = safeVal(item.name || item.editor || item.editorName || item.username);
+          const active = item.active !== undefined ? item.active : (item.inProgress !== undefined ? item.inProgress : (item.editing !== undefined ? item.editing : '—'));
+          const qc = item.qc !== undefined ? item.qc : (item.qcPending !== undefined ? item.qcPending : (item.inQc !== undefined ? item.inQc : '—'));
+          const completed = item.completed !== undefined ? item.completed : (item.done !== undefined ? item.done : (item.uploaded !== undefined ? item.uploaded : '—'));
+          const total = item.total !== undefined ? item.total : (item.totalAssigned !== undefined ? item.totalAssigned : (item.load !== undefined ? item.load : '—'));
+          const status = safeVal(item.capacityStatus || item.status || item.availability);
+
+          return { name, active, qc, completed, total, status };
+        });
+      }
+
+      renderEditorViews();
+    }
+
+    function handleEditorSearch() {
+      renderEditorViews();
+    }
+
+    function renderEditorViews() {
+      const searchInput = document.getElementById('editor-search-input');
+      const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+      const filtered = rawEditorsList.filter(e => {
+        if (!query) return true;
+        return e.name.toLowerCase().includes(query);
+      });
+
+      const countEl = document.getElementById('total-editors-count');
+      if (countEl) countEl.textContent = String(filtered.length);
+
+      const cardsGrid = document.getElementById('editors-cards-grid');
+      const tbody = document.getElementById('editors-tbody');
+      const emptyBox = document.getElementById('editors-empty');
+
+      if (filtered.length === 0) {
+        if (cardsGrid) cardsGrid.innerHTML = '';
+        if (tbody) tbody.innerHTML = '';
+        if (emptyBox) emptyBox.style.display = 'flex';
+        return;
+      }
+
+      if (emptyBox) emptyBox.style.display = 'none';
+
+      // Render Cards
+      if (cardsGrid) {
+        cardsGrid.innerHTML = '';
+        filtered.forEach(editor => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.style.cssText = 'padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;';
+          card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-main);">${editor.name}</h3>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Assigned Workload</span>
+              </div>
+              <span class="chip ${editor.status !== '—' ? 'chip-purple' : 'chip-default'}">${editor.status}</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; background: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-md); text-align: center;">
+              <div>
+                <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted);">Active</div>
+                <div style="font-size: 1.125rem; font-weight: 700; color: #b45309;">${editor.active}</div>
+              </div>
+              <div>
+                <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted);">In QC</div>
+                <div style="font-size: 1.125rem; font-weight: 700; color: #7e22ce;">${editor.qc}</div>
+              </div>
+              <div>
+                <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted);">Completed</div>
+                <div style="font-size: 1.125rem; font-weight: 700; color: #15803d;">${editor.completed}</div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8125rem; padding-top: 0.25rem;">
+              <span style="color: var(--text-muted); font-weight: 500;">Total Pipeline Load:</span>
+              <span style="font-weight: 700; color: var(--brand-700);">${editor.total}</span>
+            </div>
+          `;
+          cardsGrid.appendChild(card);
+        });
+      }
+
+      // Render Table
+      if (tbody) {
+        tbody.innerHTML = '';
+        filtered.forEach(editor => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong style="color: var(--text-main);">${editor.name}</strong></td>
+            <td><span class="chip chip-amber" style="font-size: 0.75rem;">${editor.active}</span></td>
+            <td><span class="chip chip-purple" style="font-size: 0.75rem;">${editor.qc}</span></td>
+            <td><span class="chip chip-emerald" style="font-size: 0.75rem;">${editor.completed}</span></td>
+            <td><strong>${editor.total}</strong></td>
+            <td><span class="chip chip-default">${editor.status}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    // Set refresh hook
+    window.__refreshOperationsData = loadEditorData;
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadEditorData();
+    });
+  </script>
+</Layout>
