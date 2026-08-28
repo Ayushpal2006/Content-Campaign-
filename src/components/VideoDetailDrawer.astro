@@ -35,6 +35,15 @@
       </div>
     </div>
 
+    <div class="mission-card" aria-label="Production mission progress">
+      <div class="mission-head">
+        <div id="drawer-mission-level" class="mission-level">LEVEL 1 OF 8</div>
+        <div id="drawer-mission-next" class="mission-next">Next: Save script</div>
+      </div>
+      <div class="mission-track"><span id="drawer-mission-progress" style="width: 0%"></span></div>
+      <div id="drawer-mission-steps" class="mission-steps"></div>
+    </div>
+
     <!-- Metadata Grid -->
     <div class="card" style="padding: 0.875rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-subtle);">
       <div>
@@ -98,9 +107,18 @@
           <a id="drawer-final-file-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: var(--brand-700);">View File ↗</a>
         </div>
 
-        <div id="drawer-whatsapp-row" style="display: none; align-items: center; justify-content: space-between; padding: 0.45rem 0.75rem; background: #fff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-          <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main);">Editor WhatsApp</span>
-          <a id="drawer-whatsapp-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="color: #059669;">Open Chat ↗</a>
+        <div id="drawer-prince-whatsapp-row" class="handoff-row" style="display: none;">
+          <div class="handoff-copy"><strong>Send RAW folder to Prince</strong><span>RAW coordinator · upload source files</span></div>
+          <a id="drawer-prince-whatsapp-link" href="#" target="_blank" rel="noopener noreferrer" class="btn whatsapp-icon-btn" aria-label="WhatsApp RAW folder to Prince" title="WhatsApp Prince">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2a9.84 9.84 0 0 0-8.5 14.78L2 22l5.36-1.5A9.9 9.9 0 1 0 12.04 2Zm0 17.98a8.06 8.06 0 0 1-4.1-1.12l-.3-.18-3.18.9.86-3.1-.2-.32A8.05 8.05 0 1 1 12.04 20Zm4.42-6.04c-.24-.12-1.43-.7-1.65-.79-.22-.08-.38-.12-.54.12-.16.24-.62.79-.76.95-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2a7.25 7.25 0 0 1-1.34-1.66c-.14-.24-.01-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.31-.74-1.79-.2-.47-.4-.41-.54-.42h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.43-.59 1.63-1.15.2-.56.2-1.04.14-1.15-.06-.1-.22-.16-.46-.28Z"/></svg>
+          </a>
+        </div>
+
+        <div id="drawer-whatsapp-row" class="handoff-row" style="display: none;">
+          <div class="handoff-copy"><strong>Message assigned editor</strong><span id="drawer-editor-whatsapp-caption">Send RAW and editing brief</span></div>
+          <a id="drawer-whatsapp-link" href="#" target="_blank" rel="noopener noreferrer" class="btn whatsapp-icon-btn" aria-label="WhatsApp assigned editor" title="WhatsApp editor">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2a9.84 9.84 0 0 0-8.5 14.78L2 22l5.36-1.5A9.9 9.9 0 1 0 12.04 2Zm0 17.98a8.06 8.06 0 0 1-4.1-1.12l-.3-.18-3.18.9.86-3.1-.2-.32A8.05 8.05 0 1 1 12.04 20Zm4.42-6.04c-.24-.12-1.43-.7-1.65-.79-.22-.08-.38-.12-.54.12-.16.24-.62.79-.76.95-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2a7.25 7.25 0 0 1-1.34-1.66c-.14-.24-.01-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.31-.74-1.79-.2-.47-.4-.41-.54-.42h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.43-.59 1.63-1.15.2-.56.2-1.04.14-1.15-.06-.1-.22-.16-.46-.28Z"/></svg>
+          </a>
         </div>
 
         <div id="drawer-no-links" style="font-size: 0.8125rem; color: var(--text-subtle); padding: 0.35rem 0;">No external asset links returned.</div>
@@ -184,6 +202,9 @@
   let isDetectRawRunning = false;
   let isManagerActionRunning = false;
   let editorOptionsLoaded = false;
+  const videoDetailCache = new Map();
+  const editorPhoneByName = new Map();
+  const PRINCE_WHATSAPP = '918700996424';
 
   function openVideoDrawer(videoId) {
     if (!videoId || videoId === '—') return;
@@ -202,7 +223,12 @@
     if (loading) loading.style.display = 'block';
     if (content) content.style.display = 'none';
 
-    // Fetch video detail
+    const cached = videoDetailCache.get(videoId);
+    if (cached && Date.now() - cached.savedAt < 15000) {
+      populateVideoDrawer(cached.data, videoId);
+      return Promise.resolve(cached.data);
+    }
+
     return fetch('/api/infinity', {
       method: 'POST',
       credentials: 'same-origin',
@@ -211,6 +237,7 @@
     })
       .then(res => res.json())
       .then(resData => {
+        videoDetailCache.set(videoId, { data: resData, savedAt: Date.now() });
         populateVideoDrawer(resData, videoId);
       })
       .catch(() => {
@@ -256,6 +283,9 @@
     const finalFolder = obj.finalFolderUrl || obj.finalFolder;
     const finalFile = obj.finalFileUrl || obj.finalFileLink;
     const whatsapp = obj.editorWhatsAppUrl || obj.whatsappLink || obj.whatsapp;
+    if (window.__infinityBootstrap && Array.isArray(window.__infinityBootstrap.editorLoad)) {
+      rememberEditorContacts(window.__infinityBootstrap.editorLoad);
+    }
 
     document.getElementById('drawer-video-id').textContent = id;
     document.getElementById('drawer-title').textContent = title;
@@ -273,6 +303,7 @@
     if (postUrlEl) postUrlEl.value = safeVal(obj.postUrl) === '—' ? '' : safeVal(obj.postUrl);
     loadEditorOptions(editor);
     updateManagerActionState(obj);
+    renderMissionProgress(obj);
 
     // Status Chip
     const statusChip = document.getElementById('drawer-status-chip');
@@ -320,7 +351,15 @@
     setLink('drawer-raw-file-row', 'drawer-raw-file-link', rawFile);
     setLink('drawer-final-folder-row', 'drawer-final-folder-link', finalFolder);
     setLink('drawer-final-file-row', 'drawer-final-file-link', finalFile);
-    setLink('drawer-whatsapp-row', 'drawer-whatsapp-link', whatsapp);
+    const princeWhatsapp = rawFolder ? buildWhatsAppUrl(PRINCE_WHATSAPP, `Hi Prince bhai, ${id} (${teacher}) ka RAW folder ready hai. Please RAW videos yahan upload kar do: ${rawFolder}`) : '';
+    setLink('drawer-prince-whatsapp-row', 'drawer-prince-whatsapp-link', obj.rawCoordinatorWhatsAppUrl || princeWhatsapp);
+    const editorPhone = editorPhoneByName.get(editor) || '';
+    const editorWhatsapp = whatsapp || (editorPhone && rawFolder
+      ? buildWhatsAppUrl(editorPhone, `Hi ${editor}, ${id} ki RAW files ready hain. RAW: ${rawFolder}${finalFolder ? `\nFINAL folder: ${finalFolder}` : ''}`)
+      : '');
+    setLink('drawer-whatsapp-row', 'drawer-whatsapp-link', editorWhatsapp);
+    const editorCaption = document.getElementById('drawer-editor-whatsapp-caption');
+    if (editorCaption) editorCaption.textContent = editor !== '—' ? `${editor} · send RAW and editing brief` : 'Assign editor first';
 
     const noLinksEl = document.getElementById('drawer-no-links');
     if (noLinksEl) {
@@ -359,14 +398,21 @@
       return;
     }
     try {
-      const res = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'editor_load'}) });
-      const data = await res.json().catch(() => ({}));
-      const list = data.result || data.editorLoad || data.editors || data.data || [];
+      const bootstrapList = window.__infinityBootstrap && window.__infinityBootstrap.editorLoad;
+      let list = Array.isArray(bootstrapList) ? bootstrapList : null;
+      if (!list) {
+        const res = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'editor_load'}) });
+        const data = await res.json().catch(() => ({}));
+        list = data.result || data.editorLoad || data.editors || data.data || [];
+      }
       select.innerHTML = '<option value="">Choose editor</option>';
       if (Array.isArray(list)) {
+        rememberEditorContacts(list);
         list.filter(item => item && (item.active !== false)).forEach(item => {
           const name = String(item.editor || item.name || '').trim();
           if (!name) return;
+          const phone = String(item.whatsapp || item.whatsappNumber || item.phone || item.mobile || '').replace(/\D/g, '');
+          if (phone) editorPhoneByName.set(name, phone);
           const option = document.createElement('option');
           option.value = name;
           option.textContent = `${name} — ${Number(item.openLoad || 0)}/${Number(item.dailyCapacity || 0)} open`;
@@ -378,6 +424,46 @@
     } catch (_) {
       select.innerHTML = '<option value="">Editor list unavailable</option>';
     }
+  }
+
+  function buildWhatsAppUrl(phone, message) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}` : '';
+  }
+
+  function rememberEditorContacts(list) {
+    list.forEach(item => {
+      if (!item) return;
+      const name = String(item.editor || item.name || '').trim();
+      const phone = String(item.whatsapp || item.whatsappNumber || item.phone || item.mobile || '').replace(/\D/g, '');
+      if (name && phone) editorPhoneByName.set(name, phone);
+    });
+  }
+
+  function renderMissionProgress(obj) {
+    const status = String(obj.productionStatus || '').trim();
+    const steps = [
+      ['Script', Boolean(String(obj.script || '').trim())],
+      ['Approve', Boolean(obj.scriptReady) || status !== 'Script Pending'],
+      ['RAW folder', Boolean(obj.rawFolderUrl)],
+      ['RAW ready', Boolean(obj.rawFileUrl)],
+      ['Editor', Boolean(obj.editor)],
+      ['FINAL', Boolean(obj.finalFileUrl)],
+      ['QC', ['Approved', 'Uploaded'].includes(status)],
+      ['Uploaded', Boolean(obj.posted) || status === 'Uploaded']
+    ];
+    let completed = 0;
+    steps.forEach(([, done], index) => { if (done && index === completed) completed++; });
+    const current = Math.min(completed, steps.length - 1);
+    const progress = Math.round((completed / steps.length) * 100);
+    const level = document.getElementById('drawer-mission-level');
+    const next = document.getElementById('drawer-mission-next');
+    const bar = document.getElementById('drawer-mission-progress');
+    const list = document.getElementById('drawer-mission-steps');
+    if (level) level.textContent = completed === steps.length ? 'MISSION COMPLETE · 8/8' : `LEVEL ${completed + 1} OF ${steps.length}`;
+    if (next) next.textContent = completed === steps.length ? 'Video shipped 🎉' : `Next: ${steps[completed][0]}`;
+    if (bar) bar.style.width = `${progress}%`;
+    if (list) list.innerHTML = steps.map(([label, done], index) => `<div class="mission-step ${done ? 'done' : index === current ? 'current' : ''}"><b>${done ? '✓' : index + 1}</b><span title="${label}">${label}</span></div>`).join('');
   }
 
   function updateManagerActionState(obj) {
@@ -417,6 +503,7 @@
       const res = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action, videoId:activeSelectedVideoId, requestId:crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), ...payload}) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.ok === false) throw new Error(managerErrorMessage(data, 'Manager action failed'));
+      videoDetailCache.delete(activeSelectedVideoId);
       if (box) { box.style.background = '#f0fdf4'; box.style.color = '#15803d'; box.textContent = successMessage; }
       showToast(successMessage, 'success');
       await openVideoDrawer(activeSelectedVideoId);
@@ -541,14 +628,11 @@
       showToast('RAW Detection completed successfully!', 'success');
 
       // Refresh drawer and page data
-      setTimeout(() => {
-        isDetectRawRunning = false;
-        closeDetectRawModal();
-        openVideoDrawer(activeSelectedVideoId);
-        if (typeof window.__refreshOperationsData === 'function') {
-          window.__refreshOperationsData();
-        }
-      }, 1200);
+      videoDetailCache.delete(activeSelectedVideoId);
+      isDetectRawRunning = false;
+      closeDetectRawModal();
+      openVideoDrawer(activeSelectedVideoId);
+      if (typeof window.__refreshOperationsData === 'function') window.__refreshOperationsData();
 
     } catch (err) {
       isDetectRawRunning = false;
