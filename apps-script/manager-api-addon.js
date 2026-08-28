@@ -43,20 +43,68 @@ function apiDispatchUncachedRead_(ss, action, body) {
     case 'bootstrap': {
       const context = apiLoadVideoContext_(ss);
       return {
-        dashboard: apiBuildDashboard_(context),
-        editorLoad: apiGetEditorLoad_(ss),
+        dashboard: apiManagerDashboard_(context),
+        editorLoad: apiManagerEditorLoad_(ss),
         videos: apiListVideosFromContext_(context, body)
       };
     }
     case 'dashboard':
-      return apiBuildDashboard_(apiLoadVideoContext_(ss));
+      return apiManagerDashboard_(apiLoadVideoContext_(ss));
     case 'videos':
       return apiListVideosFromContext_(apiLoadVideoContext_(ss), body);
     case 'editor_load':
-      return apiGetEditorLoad_(ss);
+      return apiManagerEditorLoad_(ss);
     default:
       throw apiError_('UNKNOWN_READ_ACTION', `Unsupported cached read: ${action}`);
   }
+}
+
+function apiManagerDashboard_(context) {
+  const dashboard = apiBuildDashboard_(context);
+  const tz = Session.getScriptTimeZone() || 'Asia/Kolkata';
+  const todayKey = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const todayByStatus = {};
+  let todayTotal = 0;
+
+  (context.items || []).forEach(item => {
+    if (!item || !item.publishDate) return;
+    let itemKey = '';
+    try {
+      const date = item.publishDate instanceof Date ? item.publishDate : new Date(item.publishDate);
+      if (!isNaN(date.getTime())) itemKey = Utilities.formatDate(date, tz, 'yyyy-MM-dd');
+    } catch (_) {}
+    if (itemKey !== todayKey) return;
+    todayTotal++;
+    const status = String(item.productionStatus || 'Unassigned').trim() || 'Unassigned';
+    todayByStatus[status] = (todayByStatus[status] || 0) + 1;
+  });
+
+  dashboard.todayTotal = todayTotal;
+  dashboard.todayByStatus = todayByStatus;
+  dashboard.todayUploaded = Number(todayByStatus.Uploaded || 0);
+  return dashboard;
+}
+
+function apiManagerEditorLoad_(ss) {
+  const load = apiGetEditorLoad_(ss) || [];
+  const sheet = ss.getSheetByName('EDITORS');
+  if (!sheet || sheet.getLastRow() < 2) return load;
+  const values = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getDisplayValues();
+  const headers = values[0].reduce((out, name, index) => {
+    out[String(name || '').trim().toLowerCase()] = index;
+    return out;
+  }, {});
+  const nameIndex = headers['editor'] !== undefined ? headers['editor'] : headers['name'];
+  const phoneIndex = headers['whatsapp'] !== undefined ? headers['whatsapp'] :
+    (headers['whatsapp number'] !== undefined ? headers['whatsapp number'] : headers['phone']);
+  if (nameIndex === undefined || phoneIndex === undefined) return load;
+  const phones = {};
+  values.slice(1).forEach(row => {
+    const name = String(row[nameIndex] || '').trim();
+    const phone = String(row[phoneIndex] || '').replace(/\D/g, '');
+    if (name && phone) phones[name] = phone;
+  });
+  return load.map(item => Object.assign({}, item, { whatsapp: phones[item.editor || item.name] || '' }));
 }
 
 function apiManagerRequired_(value, name) {

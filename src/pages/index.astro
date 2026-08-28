@@ -40,6 +40,15 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
   <!-- Dynamic Dashboard Content -->
   <div id="dashboard-content" style="display: none;">
+    <section class="today-mission card" aria-labelledby="today-mission-title">
+      <div class="today-mission-copy">
+        <span class="today-eyebrow">TODAY'S MISSION</span>
+        <h2 id="today-mission-title">Win today’s content sprint</h2>
+        <p id="today-mission-summary">Loading today’s progress…</p>
+      </div>
+      <div id="today-status-grid" class="today-status-grid"></div>
+    </section>
+
     <!-- KPI Metric Cards Grid -->
     <div id="kpi-grid" class="metrics-grid">
       <!-- Injected dynamically -->
@@ -112,7 +121,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'dashboard' })
+          body: JSON.stringify({ action: 'bootstrap', limit: 100 })
         });
 
         const data = await res.json().catch(() => ({}));
@@ -121,7 +130,9 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           throw new Error(data.error || 'Failed to fetch dashboard data');
         }
 
-        renderDashboard(data);
+        const root = data.result || data.data || data;
+        window.__infinityBootstrap = root;
+        renderDashboard(root.dashboard || root);
 
         if (lastUpdatedEl) {
           const d = new Date();
@@ -142,6 +153,8 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
     function renderDashboard(raw) {
       const root = raw || {};
       const data = root.result || root.data || root;
+
+      renderTodayMission(data);
 
       // 1. Render KPIs
       const kpiGrid = document.getElementById('kpi-grid');
@@ -277,6 +290,35 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           if (pipelineEmpty) pipelineEmpty.style.display = 'flex';
         }
       }
+    }
+
+    function renderTodayMission(data) {
+      const grid = document.getElementById('today-status-grid');
+      const summary = document.getElementById('today-mission-summary');
+      if (!grid) return;
+
+      const today = data.todayByStatus || data.todayStatus || {};
+      const planned = Number(data.plannedToday || data.todayTotal || 0);
+      const uploaded = Number(today.Uploaded || data.todayUploaded || 0);
+      const stages = [
+        ['Script', Number(today['Script Pending'] || 0)],
+        ['Ready', Number(today['Script Ready'] || 0)],
+        ['Editing', Number(today.Editing || 0)],
+        ['QC', Number(today['QC Pending'] || 0)],
+        ['Changes', Number(today.Changes || 0)],
+        ['Uploaded', uploaded]
+      ];
+
+      grid.innerHTML = stages.map(([label, value]) => `
+        <div class="today-status-item ${label === 'Uploaded' && value > 0 ? 'is-complete' : ''}">
+          <strong>${value}</strong><span>${label}</span>
+        </div>
+      `).join('');
+
+      const percent = planned > 0 ? Math.min(100, Math.round((uploaded / planned) * 100)) : 0;
+      if (summary) summary.textContent = planned
+        ? `${uploaded}/${planned} videos uploaded · ${percent}% mission complete`
+        : 'No videos planned for today yet.';
     }
 
     // Set refresh hook
