@@ -238,6 +238,9 @@ export function normalizeDashboardData(raw: unknown): DashboardData {
     pipeline,
     rawSummary: typeof data === 'object' ? data : undefined,
     lastUpdated: safeString(getProp(root, 'meta', 'timestamp', 'lastUpdated')),
+    todayByStatus: (getProp(data, 'todayByStatus', 'todayStatus') as Record<string, number>) || {},
+    todayTotal: safeNumber(getProp(data, 'todayTotal', 'plannedToday'), 0),
+    todayUploaded: safeNumber(getProp(data, 'todayUploaded'), 0),
   };
 }
 
@@ -373,6 +376,7 @@ export function normalizeVideoDetailData(raw: unknown, defaultId = ''): VideoDet
   const rawFileLink = safeString(getProp(obj, 'rawFileUrl', 'rawFileLink', 'rawLink'));
   const finalFileLink = safeString(getProp(obj, 'finalFileUrl', 'finalFileLink', 'finalLink'));
   const whatsappLink = safeString(getProp(obj, 'editorWhatsAppUrl', 'whatsappLink', 'whatsapp'));
+  const rawCoordinatorWhatsAppLink = safeString(getProp(obj, 'rawCoordinatorWhatsAppUrl', 'rawCoordinatorWhatsapp'));
 
   // Timestamps / timeline
   const timestamps: Array<{ label: string; value: string }> = [];
@@ -408,6 +412,7 @@ export function normalizeVideoDetailData(raw: unknown, defaultId = ''): VideoDet
     posted,
     scriptReady,
     whatsappLink: whatsappLink !== '—' ? whatsappLink : undefined,
+    rawCoordinatorWhatsAppLink: rawCoordinatorWhatsAppLink !== '—' ? rawCoordinatorWhatsAppLink : undefined,
     timestamps,
     rawRecord: obj,
   };
