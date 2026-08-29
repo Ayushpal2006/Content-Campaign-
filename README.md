@@ -139,6 +139,35 @@ The complete manager API add-on is also kept in `apps-script/manager-api-addon.j
 3. Deploy the web app as a new version while keeping the existing execute/access settings.
 4. Keep the same `APPS_SCRIPT_API_URL` when updating the existing deployment.
 
+### Content workflow and Daily MIS add-ons
+
+- `apps-script/manager-api-addon.js` maps UI-facing `Teacher` to the existing `Talent` Sheet column, and `Editor Brief` to the existing `Recording Notes` column. Run `setupInfinityContentFields()` once only if the `Video Type` column is missing.
+- `apps-script/daily-mis-addon.js` builds a truthful HTML email from VIDEOS statuses and timestamps. It does not invent completions.
+- Add these CONFIG rows before enabling email delivery:
+  - `MIS_RECIPIENT_EMAILS`: comma-separated recipient emails
+  - `MIS_CC_EMAILS`: optional comma-separated CC emails
+  - `MIS_SEND_HOUR`: 0–23 in the Apps Script project timezone (recommended `22`)
+- Run `sendDailyCampaignMis()` once and review the email. Then run `setupDailyMisTrigger()` once. Do not run `setupAllInfinityOperations()` for this update.
+
+### Manager access and deployment
+
+Managers use the same deployed Cloudflare Pages URL and shared `APP_ACCESS_CODE`; never share `INFINITY_API_TOKEN`, `SESSION_SECRET`, or `.dev.vars`.
+
+```bash
+git pull --ff-only origin main
+npm install
+npm run check
+npm run build
+npx wrangler pages deploy dist --project-name infinity-operations
+```
+
+For local end-to-end testing with Pages Functions and `.dev.vars`:
+
+```bash
+npm run build
+npx wrangler pages dev dist --port 8790
+```
+
 ---
 
 ## 🛡️ Safe Rollback Instructions
