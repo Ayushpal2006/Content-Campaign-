@@ -6,7 +6,26 @@
  * frontend actions follow the same validation, logs, Drive, SLA and load rules.
  */
 
-const INFINITY_MANAGER_CACHE_SECONDS = 15;
+const INFINITY_MANAGER_CACHE_SECONDS = 60;
+
+function apiSetOptionalHeader_(sheet, row, headers, header, value) {
+  if (headers[header]) set_(sheet, row, headers, header, value);
+}
+
+function setupInfinityContentFields() {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName('VIDEOS');
+  if (!sheet) throw new Error('VIDEOS sheet not found.');
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0].reduce((out, name, index) => {
+    out[String(name || '').trim()] = index + 1;
+    return out;
+  }, {});
+  if (!headers['Video Type']) {
+    sheet.insertColumnAfter(sheet.getLastColumn());
+    sheet.getRange(1, sheet.getLastColumn()).setValue('Video Type');
+  }
+  return { ok: true, message: 'Video Type field is ready. Existing Script and Recording Notes columns remain unchanged.' };
+}
 
 function apiCachedRead_(action, body, producer) {
   const props = PropertiesService.getScriptProperties();
@@ -140,8 +159,14 @@ function apiManagerLock_(work) {
 
 function apiCreateVideo_(ss, body) {
   const videoId = apiManagerRequired_(body.videoId, 'videoId');
-  const talent = apiManagerRequired_(body.talent, 'talent');
-  const script = apiManagerRequired_(body.script, 'script');
+  const teacher = apiManagerRequired_(body.teacher || body.talent, 'teacher');
+  const videoType = String(body.videoType || 'Original Recording').trim();
+  const recordingScript = String(body.recordingScript || body.script || '').trim();
+  const editorBrief = apiManagerRequired_(body.editorBrief || body.recordingNotes || body.script, 'editorBrief');
+  if (videoType === 'Original Recording' && !recordingScript) {
+    throw apiError_('RECORDING_SCRIPT_REQUIRED', 'Recording Script is required for Original Recording.');
+  }
+  const script = recordingScript || editorBrief;
   const publishDate = apiManagerDate_(body.publishDate);
   const priority = String(body.priority || 'P2 - Normal').trim();
 
@@ -158,7 +183,7 @@ function apiCreateVideo_(ss, body) {
     const values = new Array(sheet.getLastColumn()).fill('');
     values[h['Video ID'] - 1] = videoId;
     values[h['Publish Date'] - 1] = publishDate;
-    values[h['Talent'] - 1] = talent;
+    values[h['Talent'] - 1] = teacher;
     values[h['Script'] - 1] = script;
     values[h['Priority'] - 1] = priority;
     values[h['Script Ready?'] - 1] = false;
@@ -166,9 +191,11 @@ function apiCreateVideo_(ss, body) {
     values[h['QC Status'] - 1] = 'Not Ready';
     values[h['Posted?'] - 1] = false;
     values[h['Archived?'] - 1] = false;
+    if (h['Recording Notes']) values[h['Recording Notes'] - 1] = editorBrief;
+    if (h['Video Type']) values[h['Video Type'] - 1] = videoType;
     sheet.getRange(row, 1, 1, values.length).setValues([values]);
     touchStageMeta_(ss, sheet, row, h, 'Script Pending');
-    log_(ss, 'API_VIDEO_CREATED', videoId, '', 'SUCCESS', `Talent=${talent} | Priority=${priority}`, '');
+    log_(ss, 'API_VIDEO_CREATED', videoId, '', 'SUCCESS', `Teacher=${teacher} | Type=${videoType} | Priority=${priority}`, '');
     return { row };
   });
   apiInvalidateReadCache_();
@@ -176,7 +203,14 @@ function apiCreateVideo_(ss, body) {
 }
 
 function apiUpdateScript_(ss, body) {
-  const script = apiManagerRequired_(body.script, 'script');
+  const videoType = String(body.videoType || 'Original Recording').trim();
+  const recordingScript = String(body.recordingScript !== undefined ? body.recordingScript : body.script || '').trim();
+  const editorBrief = String(body.editorBrief || body.recordingNotes || '').trim();
+  if (videoType === 'Original Recording' && !recordingScript) {
+    throw apiError_('RECORDING_SCRIPT_REQUIRED', 'Recording Script is required for Original Recording.');
+  }
+  if (!editorBrief) throw apiError_('EDITOR_BRIEF_REQUIRED', 'Editor Brief is required.');
+  const script = recordingScript || editorBrief;
   const videoId = apiManagerRequired_(body.videoId, 'videoId');
   apiManagerLock_(() => {
     const found = apiManagerFind_(ss, videoId);
@@ -188,6 +222,8 @@ function apiUpdateScript_(ss, body) {
       throw apiError_('SCRIPT_LOCKED', 'Script is locked after RAW detection. Create a controlled revision instead.');
     }
     set_(found.sheet, found.row, found.h, 'Script', script);
+    apiSetOptionalHeader_(found.sheet, found.row, found.h, 'Recording Notes', editorBrief);
+    apiSetOptionalHeader_(found.sheet, found.row, found.h, 'Video Type', videoType);
     if (body.talent !== undefined) set_(found.sheet, found.row, found.h, 'Talent', apiManagerRequired_(body.talent, 'talent'));
     if (body.priority !== undefined) set_(found.sheet, found.row, found.h, 'Priority', apiManagerRequired_(body.priority, 'priority'));
     if (body.publishDate !== undefined) set_(found.sheet, found.row, found.h, 'Publish Date', apiManagerDate_(body.publishDate));
