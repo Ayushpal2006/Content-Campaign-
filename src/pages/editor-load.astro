@@ -140,6 +140,16 @@ import Layout from '../layouts/Layout.astro';
       return str === '' ? '—' : str;
     }
 
+    function parseBoolean(val, fallback = false) {
+      if (typeof val === 'boolean') return val;
+      if (typeof val === 'number') return val !== 0;
+      if (val === null || val === undefined || String(val).trim() === '') return fallback;
+      const normalized = String(val).trim().toLowerCase();
+      if (['true', 'yes', 'y', '1', 'active', 'available'].includes(normalized)) return true;
+      if (['false', 'no', 'n', '0', 'inactive', 'offline', 'unavailable'].includes(normalized)) return false;
+      return fallback;
+    }
+
     function normalizeAndRenderEditors(list) {
       if (!Array.isArray(list)) {
         rawEditorsList = [];
@@ -152,10 +162,10 @@ import Layout from '../layouts/Layout.astro';
           const name = safeVal(item.editor || item.name || item.editorName);
           const openLoad = item.openLoad !== undefined ? Number(item.openLoad) : 0;
           const dailyCapacity = item.dailyCapacity !== undefined ? Number(item.dailyCapacity) : 5;
-          const active = item.active !== false;
-          const available = active && item.available !== false;
-          const priorityRank = safeVal(item.topPriorityRank);
-          const backup = Boolean(item.emergencyBackup);
+          const active = parseBoolean(item.active, true);
+          const available = active && parseBoolean(item.available, true);
+          const priorityRank = safeVal(item.topPriorityRank || item.priorityRank);
+          const backup = parseBoolean(item.emergencyBackup, false);
 
           return { name, openLoad, dailyCapacity, active, available, priorityRank, backup };
         });
@@ -212,8 +222,8 @@ import Layout from '../layouts/Layout.astro';
                   ${editor.priorityRank !== '—' ? `Priority Rank: #${editor.priorityRank}` : 'Standard Queue'}
                 </div>
               </div>
-              <span class="chip ${editor.available ? 'chip-emerald' : 'chip-default'}" style="font-size: 0.6875rem;">
-                ${editor.available ? 'Active' : 'Offline'}
+              <span class="chip ${editor.available ? 'chip-emerald' : editor.active ? 'chip-amber' : 'chip-default'}" style="font-size: 0.6875rem;">
+                ${editor.available ? 'Available' : editor.active ? 'At capacity' : 'Offline'}
               </span>
             </div>
 
@@ -246,7 +256,7 @@ import Layout from '../layouts/Layout.astro';
             <td><strong style="color: var(--text-main);">${editor.name}</strong></td>
             <td><span class="chip ${editor.openLoad > 0 ? 'chip-amber' : 'chip-default'}" style="font-size: 0.75rem;">${editor.openLoad} tasks</span></td>
             <td><span style="font-weight: 600;">${editor.dailyCapacity} / day</span></td>
-            <td><span class="chip ${editor.available ? 'chip-emerald' : 'chip-default'}">${editor.available ? 'Available' : 'Offline'}</span></td>
+            <td><span class="chip ${editor.available ? 'chip-emerald' : editor.active ? 'chip-amber' : 'chip-default'}">${editor.available ? 'Available' : editor.active ? 'At capacity' : 'Offline'}</span></td>
             <td><span class="font-mono" style="font-size: 0.75rem; color: var(--text-muted);">${editor.priorityRank}</span></td>
             <td>${editor.backup ? '<span class="chip chip-purple" style="font-size: 0.6875rem;">Emergency Backup</span>' : '<span style="color:var(--text-subtle);">No</span>'}</td>
           `;

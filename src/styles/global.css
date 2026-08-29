@@ -438,11 +438,12 @@ html, body {
 .today-eyebrow { font-size: .65rem; letter-spacing: .12em; font-weight: 800; opacity: .78; }
 .today-mission h2 { font-size: 1rem; margin-top: .15rem; }
 .today-mission p { font-size: .75rem; margin-top: .2rem; opacity: .82; }
-.today-status-grid { display: grid; grid-template-columns: repeat(6, minmax(56px, 1fr)); gap: .45rem; }
+.today-status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: .45rem; }
 .today-status-item { text-align: center; padding: .55rem .25rem; border-radius: .65rem; background: rgb(255 255 255 / .11); border: 1px solid rgb(255 255 255 / .14); }
 .today-status-item strong { display: block; font-size: 1.05rem; }
 .today-status-item span { display: block; font-size: .65rem; opacity: .78; }
 .today-status-item.is-complete { background: rgb(16 185 129 / .3); }
+.today-status-item.is-alert { background: rgb(251 113 133 / .28); border-color: rgb(255 255 255 / .35); }
 
 .mission-card { padding: .85rem; background: linear-gradient(145deg, #fff, #fff7fb); border: 1px solid var(--brand-200); border-radius: var(--radius-lg); }
 .mission-head { display: flex; justify-content: space-between; gap: .75rem; align-items: center; }
