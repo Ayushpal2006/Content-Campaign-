@@ -121,7 +121,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'bootstrap', limit: 100 })
+          body: JSON.stringify({ action: 'dashboard' })
         });
 
         const data = await res.json().catch(() => ({}));
@@ -130,9 +130,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           throw new Error(data.error || 'Failed to fetch dashboard data');
         }
 
-        const root = data.result || data.data || data;
-        window.__infinityBootstrap = root;
-        renderDashboard(root.dashboard || root);
+        renderDashboard(data);
 
         if (lastUpdatedEl) {
           const d = new Date();
