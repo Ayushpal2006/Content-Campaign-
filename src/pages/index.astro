@@ -296,27 +296,52 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       if (!grid) return;
 
       const today = data.todayByStatus || data.todayStatus || {};
-      const planned = Number(data.plannedToday || data.todayTotal || 0);
-      const uploaded = Number(today.Uploaded || data.todayUploaded || 0);
+      const planned = Number(data.todayTotal ?? data.plannedToday ?? 0);
+      const normalizedToday = Object.entries(today).reduce((out, [key, value]) => {
+        out[String(key || '').trim().toLowerCase()] = Number(value || 0);
+        return out;
+      }, {});
+      const count = (...statuses) => statuses.reduce((total, status) => total + Number(normalizedToday[status.toLowerCase()] || 0), 0);
+
+      // Unassigned/blank-status videos are still at the first production stage;
+      // do not silently discard them and show a misleading row of zeroes.
+      const script = count('Script Pending', 'Unassigned', 'Planned', 'Draft', 'Not Started', 'Not Set');
+      const ready = count('Script Ready');
+      const editing = count('Editing', 'Assigned');
+      const qc = count('QC Pending', 'Pending Review');
+      const changes = count('Changes', 'Changes Required', 'Rework');
+      const approved = count('Approved');
+      const uploaded = count('Uploaded') || Number(data.todayUploaded || 0);
+      const classified = script + ready + editing + qc + changes + approved + uploaded;
+      const needsSetup = Math.max(0, planned - classified);
       const stages = [
-        ['Script', Number(today['Script Pending'] || 0)],
-        ['Ready', Number(today['Script Ready'] || 0)],
-        ['Editing', Number(today.Editing || 0)],
-        ['QC', Number(today['QC Pending'] || 0)],
-        ['Changes', Number(today.Changes || 0)],
-        ['Uploaded', uploaded]
+        ['Script', script, ''],
+        ['Ready', ready, ''],
+        ['Editing', editing, ''],
+        ['QC', qc, ''],
+        ['Changes', changes, changes > 0 ? 'is-alert' : ''],
+        ['Approved', approved, approved > 0 ? 'is-complete' : ''],
+        ['Uploaded', uploaded, uploaded > 0 ? 'is-complete' : '']
       ];
 
-      grid.innerHTML = stages.map(([label, value]) => `
-        <div class="today-status-item ${label === 'Uploaded' && value > 0 ? 'is-complete' : ''}">
+      if (needsSetup > 0) stages.push(['Needs setup', needsSetup, 'is-alert']);
+
+      grid.innerHTML = stages.map(([label, value, stateClass]) => `
+        <div class="today-status-item ${stateClass}">
           <strong>${value}</strong><span>${label}</span>
         </div>
       `).join('');
 
       const percent = planned > 0 ? Math.min(100, Math.round((uploaded / planned) * 100)) : 0;
-      if (summary) summary.textContent = planned
-        ? `${uploaded}/${planned} videos uploaded · ${percent}% mission complete`
-        : 'No videos planned for today yet.';
+      if (summary) {
+        if (!planned) {
+          summary.textContent = 'No videos planned for today yet.';
+        } else if (needsSetup > 0) {
+          summary.textContent = `${uploaded}/${planned} uploaded · ${needsSetup} need status setup`;
+        } else {
+          summary.textContent = `${uploaded}/${planned} uploaded · ${approved} approved · ${percent}% complete`;
+        }
+      }
     }
 
     // Set refresh hook

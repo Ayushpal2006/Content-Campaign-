@@ -259,15 +259,17 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
         const teacher = safeVal(item.talent || item.teacher || item.instructor);
         const editor = safeVal(item.editor || item.assignedTo);
-        const status = safeVal(item.productionStatus || item.status || item.state);
-        const sla = safeVal(item.slaStatus || item.sla);
+        const rawStatus = safeVal(item.productionStatus || item.status || item.state);
+        const status = rawStatus === '—' ? 'Not set' : rawStatus;
+        const rawSla = safeVal(item.slaStatus || item.sla);
+        const sla = rawSla === '—' ? 'Not set' : rawSla;
 
         const hasRaw = Boolean(item.rawFileUrl || item.rawLink || item.rawUrl);
         const hasFinal = Boolean(item.finalFileUrl || item.finalLink || item.finalUrl);
         const hasRawFolder = Boolean(item.rawFolderUrl || item.rawFolder);
         const hasFinalFolder = Boolean(item.finalFolderUrl || item.finalFolder);
 
-        return { id, title: title !== '—' ? title : 'Untitled Video', fullTitle: fullText, teacher, editor, status, sla, rawAvailable: hasRaw, finalAvailable: hasFinal, rawFolderAvailable: hasRawFolder, finalFolderAvailable: hasFinalFolder, rawRecord: item };
+        return { id, title: title !== '—' ? title : 'Script not added', fullTitle: fullText, teacher, editor, status, sla, rawAvailable: hasRaw, finalAvailable: hasFinal, rawFolderAvailable: hasRawFolder, finalFolderAvailable: hasFinalFolder, rawRecord: item };
       });
 
       populateFilterOptions();
@@ -414,10 +416,11 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           s.includes('overdue') || s.includes('blocked') || s.includes('error') ? 'chip-red' :
           s.includes('qc') || s.includes('review') ? 'chip-purple' :
           s.includes('editing') || s.includes('in progress') ? 'chip-amber' :
+          s.includes('not set') ? 'chip-rose' :
           'chip-blue';
 
         const slaLower = item.sla.toLowerCase();
-        const slaChipClass = slaLower.includes('overdue') ? 'chip-red' : (slaLower.includes('parked') ? 'chip-default' : 'chip-blue');
+        const slaChipClass = slaLower.includes('overdue') ? 'chip-red' : (slaLower.includes('parked') || slaLower.includes('not set') ? 'chip-default' : 'chip-blue');
 
         tr.innerHTML = `
           <td><span class="font-mono" style="font-size: 0.75rem; font-weight: 700; color: var(--brand-700);">${item.id}</span></td>
