@@ -120,7 +120,7 @@ All requests to `/api/infinity` forward only the following exact actions to the 
 * `editor_load`: Returns editor workload, capacity, and active task distribution.
 * `detect_raw`: Triggers asynchronous Google Drive RAW file detection for a given `videoId`.
 * `create_video`: Creates a Script Pending video row.
-* `update_script`: Saves manager script, talent, priority, and publish-date edits before production starts.
+* `update_script`: Saves manager script, teacher, priority, and publish-date edits before production starts.
 * `approve_script`: Marks the script ready and asks the existing backend workflow to create/reuse Drive folders.
 * `assign_editor`: Assigns or reassigns an active editor through the existing load rules.
 * `detect_final`: Checks only the selected video's FINAL folder and moves it to QC Pending when a new file exists.
@@ -128,7 +128,7 @@ All requests to `/api/infinity` forward only the following exact actions to the 
 * `qc_changes`: Requests changes; non-empty QC notes are required.
 * `mark_uploaded`: Records account and post URL after QC approval.
 
-Read-heavy dashboard actions use a 15-second Apps Script cache. Every successful manager write invalidates that cache, so the UI avoids repeated full-sheet reads without showing stale workflow changes.
+Read-heavy dashboard actions use a 60-second Apps Script cache. Every successful manager write invalidates that cache, so the UI avoids repeated full-sheet reads without showing stale workflow changes.
 
 ## Apps Script activation
 
@@ -167,6 +167,15 @@ For local end-to-end testing with Pages Functions and `.dev.vars`:
 npm run build
 npx wrangler pages dev dist --port 8790
 ```
+
+### Installable app and device alerts
+
+- Install from the header **Install** button on Android/desktop Chromium. On iPhone, use Safari **Share → Add to Home Screen**.
+- Open the bell and press **Enable** once on every phone or computer that should receive alerts.
+- While the app is running, it checks every 90 seconds for QC, Changes, editor reassignment, RAW/FINAL readiness, and stage movement.
+- The first successful check creates a baseline and intentionally does not flood the device with historical alerts.
+- The service worker never caches API, session, HTML, or Google Sheet responses. It caches only static UI assets.
+- Guaranteed push while the PWA is fully closed is not included. That requires persistent push subscriptions plus a server-side event sender.
 
 ---
 

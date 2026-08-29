@@ -204,6 +204,15 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         }
 
         normalizeAndStoreVideos(rawList);
+        if (typeof window.__ingestInfinityVideos === 'function') {
+          window.__ingestInfinityVideos(rawList);
+        }
+
+        const requestedVideo = new URLSearchParams(window.location.search).get('video');
+        if (requestedVideo && typeof window.openVideoDrawer === 'function') {
+          window.openVideoDrawer(requestedVideo);
+          window.history.replaceState({}, '', '/videos');
+        }
 
         if (lastUpdatedEl) {
           const d = new Date();
