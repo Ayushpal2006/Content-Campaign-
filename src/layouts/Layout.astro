@@ -3,7 +3,7 @@ import '../styles/global.css';
 
 interface Props {
   title?: string;
-  activeTab?: 'dashboard' | 'videos' | 'editors' | 'login';
+  activeTab?: 'dashboard' | 'videos' | 'editors' | 'mis' | 'login';
 }
 
 const { title = 'Infinity Operations', activeTab = 'dashboard' } = Astro.props;
@@ -69,6 +69,13 @@ const isLoginPage = activeTab === 'login';
                 <path d="M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
               <span>Editor Load</span>
+            </a>
+
+            <a href="/mis" class={`nav-link ${activeTab === 'mis' ? 'active' : ''}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19V9" /><path d="M10 19V5" /><path d="M16 19v-7" /><path d="M22 19V3" />
+              </svg>
+              <span>Daily MIS</span>
             </a>
           </nav>
 
