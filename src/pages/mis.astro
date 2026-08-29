@@ -1,0 +1,80 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Daily MIS" activeTab="mis">
+  <div id="mis-error" class="error-state" style="display:none;margin-bottom:1rem;"></div>
+  <div id="mis-loading" class="card" style="padding:1.25rem;">
+    <div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-metric"></div>
+  </div>
+
+  <div id="mis-content" style="display:none;gap:1rem;flex-direction:column;">
+    <div class="card" style="padding:1rem 1.2rem;display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap;">
+      <div><div class="today-eyebrow" style="color:var(--brand-700);">DAILY MANAGEMENT REPORT</div><h2 style="font-size:1.05rem;margin-top:.15rem;">Email-ready campaign MIS</h2><p style="font-size:.78rem;color:var(--text-muted);margin-top:.2rem;">Same truthful production data, formatted for management.</p></div>
+      <span class="chip chip-emerald">HTML email preview</span>
+    </div>
+
+    <div class="mis-preview-shell">
+      <div class="mis-email-head"><span>INFINITY OPERATIONS · DAILY MIS</span><h1>Campaign Production Report</h1><p id="mis-date">—</p></div>
+      <div class="mis-email-body">
+        <h3>Today at a glance</h3>
+        <div id="mis-metrics" class="mis-metrics"></div>
+        <h3>Production pipeline</h3>
+        <div class="table-container"><table class="compact-table"><thead><tr><th>Stage</th><th>Today</th><th>Campaign</th></tr></thead><tbody id="mis-pipeline"></tbody></table></div>
+        <div class="mis-projection-note"><strong>Projection:</strong> The scheduled email calculates conservative, expected and stretch delivery from real 7-day uploaded velocity and current Editing/QC inventory.</div>
+      </div>
+      <div id="mis-focus" class="mis-email-focus">Manager focus will appear here.</div>
+    </div>
+
+    <div class="card" style="padding:1rem 1.2rem;">
+      <h3 style="font-size:.9rem;">Email automation activation</h3>
+      <ol style="margin:.6rem 0 0 1.1rem;font-size:.8rem;color:var(--text-muted);line-height:1.7;">
+        <li>Add <code>apps-script/daily-mis-addon.js</code> to the bound Apps Script project.</li>
+        <li>Set <code>MIS_RECIPIENT_EMAILS</code>, optional <code>MIS_CC_EMAILS</code>, and <code>MIS_SEND_HOUR</code> in CONFIG.</li>
+        <li>Run <code>sendDailyCampaignMis()</code> once for a reviewed test email.</li>
+        <li>Run <code>setupDailyMisTrigger()</code> once to create the daily trigger.</li>
+      </ol>
+    </div>
+  </div>
+
+  <script is:inline>
+    async function loadMis() {
+      const loading = document.getElementById('mis-loading');
+      const content = document.getElementById('mis-content');
+      const error = document.getElementById('mis-error');
+      try {
+        const res = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'dashboard'}) });
+        const raw = await res.json().catch(() => ({}));
+        if (!res.ok || raw.ok === false) throw new Error(raw.error || 'Could not load MIS data');
+        const data = raw.result || raw.data || raw;
+        renderMis(data);
+        loading.style.display = 'none'; content.style.display = 'flex';
+      } catch (e) {
+        loading.style.display = 'none'; error.style.display = 'block'; error.textContent = e.message || 'Could not load MIS data';
+      }
+    }
+
+    function renderMis(data) {
+      const today = data.todayByStatus || {};
+      const all = data.byStatus || {};
+      const planned = Number(data.plannedToday || data.todayTotal || 0);
+      const uploaded = Number(today.Uploaded || data.todayUploaded || 0);
+      const overdue = Number(data.overdue || 0);
+      const blocked = Number(data.blocked || 0);
+      document.getElementById('mis-date').textContent = new Date().toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'});
+      const metrics = [
+        ['Planned', planned, 'Scheduled today'],
+        ['Uploaded', uploaded, planned ? `${Math.round(uploaded/planned*100)}% of today` : 'No plan yet'],
+        ['Editing', Number(today.Editing || 0), 'Today pipeline'],
+        ['Attention', overdue + blocked, `${overdue} overdue · ${blocked} blocked`]
+      ];
+      document.getElementById('mis-metrics').innerHTML = metrics.map(([label,value,note]) => `<div class="mis-metric"><span>${label}</span><strong>${value}</strong><small>${note}</small></div>`).join('');
+      const stages = ['Script Pending','Script Ready','Editing','QC Pending','Changes','Approved','Uploaded'];
+      document.getElementById('mis-pipeline').innerHTML = stages.map(stage => `<tr><td style="font-weight:700">${stage}</td><td>${Number(today[stage] || 0)}</td><td>${Number(all[stage] || 0)}</td></tr>`).join('');
+      document.getElementById('mis-focus').innerHTML = `<strong>Manager focus:</strong> Clear ${overdue} overdue and ${blocked} blocked item(s); protect the next delivery window.`;
+      const last = document.getElementById('last-updated-text'); if (last) last.textContent = 'MIS refreshed just now';
+    }
+    window.__refreshOperationsData = loadMis;
+    document.addEventListener('DOMContentLoaded', loadMis);
+  </script>
+</Layout>
