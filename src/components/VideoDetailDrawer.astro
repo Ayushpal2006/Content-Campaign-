@@ -47,7 +47,7 @@
     <!-- Metadata Grid -->
     <div class="card" style="padding: 0.875rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-subtle);">
       <div>
-        <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Talent / Teacher</div>
+        <div style="font-size: 0.6875rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Teacher</div>
         <div id="drawer-teacher" style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main); margin-top: 2px;">—</div>
       </div>
       <div>
@@ -58,13 +58,19 @@
 
     <!-- Manager script workspace -->
     <div id="drawer-script-section" style="display: flex; flex-direction: column; gap: 0.375rem;">
-      <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Script Workspace</span>
-      <label class="manager-field">Script
-        <textarea id="drawer-script-input" rows="7" placeholder="Write or update the script..."></textarea>
+      <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Content Workspace</span>
+      <label class="manager-field">Video Type
+        <select id="drawer-video-type"><option>Original Recording</option><option>Repurpose</option><option>Existing RAW</option></select>
+      </label>
+      <label class="manager-field">Recording Script <span style="font-weight:500;">— for the teacher</span>
+        <textarea id="drawer-script-input" rows="6" placeholder="What the teacher should say, including hook and delivery cues..."></textarea>
+      </label>
+      <label class="manager-field">Editor Brief <span style="font-weight:500;">— sent with RAW</span>
+        <textarea id="drawer-editor-brief-input" rows="6" placeholder="Source/timestamps, first frame, cuts, subtitles, SFX, duration and caption..."></textarea>
       </label>
       <div class="manager-action-grid">
-        <button id="save-script-btn" class="btn btn-secondary" onclick="saveManagerScript()">Save Script</button>
-        <button id="approve-script-btn" class="btn btn-primary" onclick="approveManagerScript()">Approve Script ✓</button>
+        <button id="save-script-btn" class="btn btn-secondary" onclick="saveManagerScript()">Save Content</button>
+        <button id="approve-script-btn" class="btn btn-primary" onclick="approveManagerScript()">Approve Content ✓</button>
       </div>
     </div>
 
@@ -272,6 +278,8 @@
     }
 
     const scriptText = safeVal(obj.script || obj.scriptPreview);
+    const editorBrief = safeVal(obj.editorBrief || obj.recordingNotes || obj.notes);
+    const videoType = safeVal(obj.videoType || obj.contentType);
     const teacher = safeVal(obj.talent || obj.teacher || obj.instructor);
     const editor = safeVal(obj.editor || obj.assignedTo);
     const status = safeVal(obj.productionStatus || obj.status || obj.state);
@@ -282,7 +290,6 @@
     const rawFile = obj.rawFileUrl || obj.rawFileLink;
     const finalFolder = obj.finalFolderUrl || obj.finalFolder;
     const finalFile = obj.finalFileUrl || obj.finalFileLink;
-    const whatsapp = obj.editorWhatsAppUrl || obj.whatsappLink || obj.whatsapp;
     if (window.__infinityBootstrap && Array.isArray(window.__infinityBootstrap.editorLoad)) {
       rememberEditorContacts(window.__infinityBootstrap.editorLoad);
     }
@@ -294,14 +301,18 @@
 
     // Manager fields
     const scriptEl = document.getElementById('drawer-script-input');
+    const editorBriefEl = document.getElementById('drawer-editor-brief-input');
+    const videoTypeEl = document.getElementById('drawer-video-type');
     const qcNotesEl = document.getElementById('drawer-qc-notes');
     const accountEl = document.getElementById('drawer-account');
     const postUrlEl = document.getElementById('drawer-post-url');
     if (scriptEl) scriptEl.value = scriptText === '—' ? '' : scriptText;
+    if (editorBriefEl) editorBriefEl.value = editorBrief === '—' ? '' : editorBrief;
+    if (videoTypeEl) videoTypeEl.value = videoType === '—' ? 'Original Recording' : videoType;
     if (qcNotesEl) qcNotesEl.value = safeVal(obj.qcChangeNotes) === '—' ? '' : safeVal(obj.qcChangeNotes);
     if (accountEl) accountEl.value = safeVal(obj.account) === '—' ? '' : safeVal(obj.account);
     if (postUrlEl) postUrlEl.value = safeVal(obj.postUrl) === '—' ? '' : safeVal(obj.postUrl);
-    loadEditorOptions(editor);
+    loadEditorOptions(editor).then(() => renderWhatsappHandoffs(obj));
     updateManagerActionState(obj);
     renderMissionProgress(obj);
 
@@ -351,15 +362,7 @@
     setLink('drawer-raw-file-row', 'drawer-raw-file-link', rawFile);
     setLink('drawer-final-folder-row', 'drawer-final-folder-link', finalFolder);
     setLink('drawer-final-file-row', 'drawer-final-file-link', finalFile);
-    const princeWhatsapp = rawFolder ? buildWhatsAppUrl(PRINCE_WHATSAPP, `Hi Prince bhai, ${id} (${teacher}) ka RAW folder ready hai. Please RAW videos yahan upload kar do: ${rawFolder}`) : '';
-    setLink('drawer-prince-whatsapp-row', 'drawer-prince-whatsapp-link', obj.rawCoordinatorWhatsAppUrl || princeWhatsapp);
-    const editorPhone = editorPhoneByName.get(editor) || '';
-    const editorWhatsapp = whatsapp || (editorPhone && rawFolder
-      ? buildWhatsAppUrl(editorPhone, `Hi ${editor}, ${id} ki RAW files ready hain. RAW: ${rawFolder}${finalFolder ? `\nFINAL folder: ${finalFolder}` : ''}`)
-      : '');
-    setLink('drawer-whatsapp-row', 'drawer-whatsapp-link', editorWhatsapp);
-    const editorCaption = document.getElementById('drawer-editor-whatsapp-caption');
-    if (editorCaption) editorCaption.textContent = editor !== '—' ? `${editor} · send RAW and editing brief` : 'Assign editor first';
+    renderWhatsappHandoffs(obj);
 
     const noLinksEl = document.getElementById('drawer-no-links');
     if (noLinksEl) {
@@ -429,6 +432,31 @@
   function buildWhatsAppUrl(phone, message) {
     const digits = String(phone || '').replace(/\D/g, '');
     return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}` : '';
+  }
+
+  function renderWhatsappHandoffs(obj) {
+    const id = String(obj.videoId || activeSelectedVideoId || '').trim();
+    const teacher = String(obj.teacher || obj.talent || '').trim();
+    const editor = String(obj.editor || obj.assignedTo || '').trim();
+    const rawFolder = obj.rawFolderUrl || obj.rawFolder || '';
+    const rawFile = obj.rawFileUrl || obj.rawFileLink || '';
+    const finalFolder = obj.finalFolderUrl || obj.finalFolder || '';
+    const brief = String(obj.editorBrief || obj.recordingNotes || obj.notes || '').trim();
+    const setHref = (rowId, linkId, href) => {
+      const row = document.getElementById(rowId);
+      const link = document.getElementById(linkId);
+      if (row) row.style.display = href ? 'flex' : 'none';
+      if (link && href) link.href = href;
+    };
+    const princeUrl = rawFolder ? buildWhatsAppUrl(PRINCE_WHATSAPP, `Hi Prince bhai,\n\n${id}${teacher ? ` (${teacher})` : ''} ka RAW folder ready hai.\n${rawFolder}\n\nPlease saari RAW videos isi folder mein upload kar dena.`) : '';
+    setHref('drawer-prince-whatsapp-row', 'drawer-prince-whatsapp-link', princeUrl);
+
+    const editorPhone = editorPhoneByName.get(editor) || '';
+    const editorMessage = `Hi ${editor},\n\n${id} ki editing assigned hai.${teacher ? `\nTeacher: ${teacher}` : ''}${brief ? `\n\nEditor Brief:\n${brief}` : ''}${rawFile ? `\n\nRAW File: ${rawFile}` : rawFolder ? `\n\nRAW Folder: ${rawFolder}` : ''}${finalFolder ? `\nFINAL Folder: ${finalFolder}` : ''}`;
+    const backendUrl = obj.editorWhatsAppUrl || obj.whatsappLink || obj.whatsapp || '';
+    setHref('drawer-whatsapp-row', 'drawer-whatsapp-link', backendUrl || (editor && editorPhone ? buildWhatsAppUrl(editorPhone, editorMessage) : ''));
+    const caption = document.getElementById('drawer-editor-whatsapp-caption');
+    if (caption) caption.textContent = editor ? `${editor} · Editor Brief + RAW` : 'Assign editor first';
   }
 
   function rememberEditorContacts(list) {
@@ -520,14 +548,20 @@
 
   function saveManagerScript() {
     const script = document.getElementById('drawer-script-input')?.value.trim() || '';
-    if (!script) { showToast('Script cannot be empty', 'error'); return; }
-    return runManagerAction('update_script', { script }, 'Script saved. Approval is required before production.');
+    const editorBrief = document.getElementById('drawer-editor-brief-input')?.value.trim() || '';
+    const videoType = document.getElementById('drawer-video-type')?.value || 'Original Recording';
+    if (videoType === 'Original Recording' && !script) { showToast('Recording Script is required', 'error'); return; }
+    if (!editorBrief) { showToast('Editor Brief is required', 'error'); return; }
+    return runManagerAction('update_script', { script: script || editorBrief, recordingScript: script, editorBrief, videoType }, 'Content saved. Approval is required before production.');
   }
 
   function approveManagerScript() {
     const script = document.getElementById('drawer-script-input')?.value.trim() || '';
-    if (!script) { showToast('Script cannot be empty', 'error'); return; }
-    return runManagerAction('approve_script', { script }, 'Script approved and Drive folders prepared.');
+    const editorBrief = document.getElementById('drawer-editor-brief-input')?.value.trim() || '';
+    const videoType = document.getElementById('drawer-video-type')?.value || 'Original Recording';
+    if (videoType === 'Original Recording' && !script) { showToast('Recording Script is required', 'error'); return; }
+    if (!editorBrief) { showToast('Editor Brief is required', 'error'); return; }
+    return runManagerAction('approve_script', { script: script || editorBrief, recordingScript: script, editorBrief, videoType }, 'Content approved and Drive folders prepared.');
   }
 
   function assignManagerEditor() {
