@@ -1,0 +1,20 @@
+{
+  "name": "Infinity Operations",
+  "short_name": "Infinity Ops",
+  "description": "Mobile operations control tower for the content production pipeline.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#be185d",
+  "orientation": "any",
+  "icons": [
+    { "src": "/icons/infinity-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/infinity-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Today", "url": "/", "icons": [{ "src": "/icons/infinity-192.png", "sizes": "192x192" }] },
+    { "name": "Videos", "url": "/videos", "icons": [{ "src": "/icons/infinity-192.png", "sizes": "192x192" }] },
+    { "name": "Daily MIS", "url": "/mis", "icons": [{ "src": "/icons/infinity-192.png", "sizes": "192x192" }] }
+  ]
+}

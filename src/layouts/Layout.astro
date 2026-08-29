@@ -17,6 +17,12 @@ const isLoginPage = activeTab === 'login';
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title} — Infinity Operations</title>
     <meta name="description" content="Production Operations Dashboard for Video Production Pipelines." />
+    <meta name="theme-color" content="#be185d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Infinity Ops" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/infinity-192.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" />
   </head>
@@ -113,6 +119,19 @@ const isLoginPage = activeTab === 'login';
               <div id="refresh-indicator" class="refresh-indicator">
                 <span id="last-updated-text">Loaded</span>
               </div>
+              <button id="install-app-btn" class="btn btn-secondary btn-sm header-icon-btn" type="button" hidden aria-label="Install Infinity Operations">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 3v12" /><polyline points="7 10 12 15 17 10" /><path d="M5 21h14" />
+                </svg>
+                <span class="header-action-label">Install</span>
+              </button>
+              <button id="notification-bell-btn" class="btn btn-secondary btn-sm header-icon-btn notification-bell" type="button" aria-label="Open activity notifications" aria-expanded="false">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                </svg>
+                <span class="header-action-label">Alerts</span>
+                <span id="notification-badge" class="notification-badge" hidden>0</span>
+              </button>
               <button id="global-refresh-btn" class="btn btn-secondary btn-sm" onclick="triggerPageRefresh()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="23 4 23 10 17 10" />
@@ -126,12 +145,48 @@ const isLoginPage = activeTab === 'login';
           <main class="content-body">
             <slot />
           </main>
+
+          <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+            <a href="/" class={activeTab === 'dashboard' ? 'active' : ''}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Today
+            </a>
+            <a href="/videos" class={activeTab === 'videos' ? 'active' : ''}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3Z"/></svg>Videos
+            </a>
+            <a href="/editor-load" class={activeTab === 'editors' ? 'active' : ''}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M17 5a3 3 0 0 1 0 6M19 14a5 5 0 0 1 2 4v2"/></svg>Editors
+            </a>
+            <a href="/mis" class={activeTab === 'mis' ? 'active' : ''}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/></svg>MIS
+            </a>
+          </nav>
         </div>
       </div>
     )}
 
     <!-- Toast Notification Container -->
     <div id="toast-root" class="toast-container"></div>
+
+    {!isLoginPage && (
+      <aside id="notification-panel" class="notification-panel" aria-hidden="true">
+        <div class="notification-panel-head">
+          <div>
+            <strong>Activity alerts</strong>
+            <span id="notification-status-text">Checking notification support…</span>
+          </div>
+          <button id="notification-panel-close" class="notification-close-btn" type="button" aria-label="Close notifications">×</button>
+        </div>
+        <div class="notification-permission-card">
+          <div>
+            <strong>QC and Changes alerts</strong>
+            <span>Receive an alert while this app is running.</span>
+          </div>
+          <button id="enable-notifications-btn" class="btn btn-primary btn-sm" type="button">Enable</button>
+        </div>
+        <div id="notification-feed" class="notification-feed"></div>
+        <button id="clear-notifications-btn" class="notification-clear-btn" type="button">Clear activity</button>
+      </aside>
+    )}
 
     <script is:inline define:vars={{ isLoginPage }}>
       function isLoginRoute(pathname) {
@@ -206,5 +261,6 @@ const isLoginPage = activeTab === 'login';
           .catch(() => {});
       })();
     </script>
+    <script is:inline src="/notification-engine.js" defer></script>
   </body>
 </html>
