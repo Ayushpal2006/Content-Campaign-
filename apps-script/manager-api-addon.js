@@ -27,6 +27,46 @@ function setupInfinityContentFields() {
   return { ok: true, message: 'Video Type field is ready. Existing Script and Recording Notes columns remain unchanged.' };
 }
 
+function repairInfinityVideoDropdowns() {
+  const ss = SpreadsheetApp.getActive();
+  const videos = ss.getSheetByName('VIDEOS');
+  const teachers = ss.getSheetByName('TALENT');
+  const editors = ss.getSheetByName('EDITORS');
+  const accounts = ss.getSheetByName('ACCOUNTS');
+  if (!videos || !teachers || !editors || !accounts) {
+    throw new Error('VIDEOS, TALENT, EDITORS and ACCOUNTS sheets are required.');
+  }
+  const h = headers_(videos);
+  requireHeaders_(h, ['Talent','Priority','Production Status','Editor','QC Status','Account']);
+  const rows = Math.max(1, videos.getMaxRows() - 1);
+  const setRule = (header, rule) => videos.getRange(2, h[header], rows, 1).setDataValidation(rule);
+  setRule('Talent', SpreadsheetApp.newDataValidation()
+    .requireValueInRange(teachers.getRange('A2:A200'), true)
+    .setAllowInvalid(true)
+    .build());
+  setRule('Priority', SpreadsheetApp.newDataValidation()
+    .requireValueInList(['P0 - Critical','P1 - High','P2 - Normal','P3 - Low'], true)
+    .setAllowInvalid(false)
+    .build());
+  setRule('Production Status', SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Script Pending','Script Ready','Recording','Raw Ready','Editing','QC Pending','Changes','Approved','Uploaded','Blocked'], true)
+    .setAllowInvalid(true)
+    .build());
+  setRule('Editor', SpreadsheetApp.newDataValidation()
+    .requireValueInRange(editors.getRange('A2:A200'), true)
+    .setAllowInvalid(false)
+    .build());
+  setRule('QC Status', SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Not Ready','Pending Review','Changes Required','Approved'], true)
+    .setAllowInvalid(true)
+    .build());
+  setRule('Account', SpreadsheetApp.newDataValidation()
+    .requireValueInRange(accounts.getRange('B2:B500'), true)
+    .setAllowInvalid(false)
+    .build());
+  return { ok: true, rows, message: 'VIDEOS dropdowns repaired for desktop and Google Sheets mobile.' };
+}
+
 function apiCachedRead_(action, body, producer) {
   const props = PropertiesService.getScriptProperties();
   const epoch = props.getProperty('INFINITY_API_CACHE_EPOCH') || '0';
@@ -83,25 +123,53 @@ function apiManagerDashboard_(context) {
   const tz = Session.getScriptTimeZone() || 'Asia/Kolkata';
   const todayKey = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   const todayByStatus = {};
+  const todayItems = [];
   let todayTotal = 0;
 
   (context.items || []).forEach(item => {
     if (!item || !item.publishDate) return;
-    let itemKey = '';
-    try {
-      const date = item.publishDate instanceof Date ? item.publishDate : new Date(item.publishDate);
-      if (!isNaN(date.getTime())) itemKey = Utilities.formatDate(date, tz, 'yyyy-MM-dd');
-    } catch (_) {}
+    const itemKey = apiManagerDateKey_(item.publishDate, tz);
     if (itemKey !== todayKey) return;
     todayTotal++;
     const status = String(item.productionStatus || 'Unassigned').trim() || 'Unassigned';
     todayByStatus[status] = (todayByStatus[status] || 0) + 1;
+    todayItems.push({
+      videoId: item.videoId || '',
+      title: item.scriptPreview || item.title || '',
+      teacher: item.teacher || item.talent || '',
+      editor: item.editor || '',
+      productionStatus: status,
+      slaStatus: item.slaStatus || '',
+      blocker: item.blocker || ''
+    });
   });
 
   dashboard.todayTotal = todayTotal;
+  dashboard.plannedToday = todayTotal;
   dashboard.todayByStatus = todayByStatus;
   dashboard.todayUploaded = Number(todayByStatus.Uploaded || 0);
+  dashboard.todayItems = todayItems;
   return dashboard;
+}
+
+function apiManagerDateKey_(value, tz) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, tz, 'yyyy-MM-dd');
+  }
+  const text = String(value || '').trim();
+  if (!text) return '';
+  let match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
+  if (match) return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
+  match = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/.exec(text);
+  if (match) return `${match[3]}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}`;
+  match = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(text);
+  if (match) {
+    const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
+    const month = months[match[2].toLowerCase()];
+    if (month) return `${match[3]}-${String(month).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}`;
+  }
+  const parsed = new Date(text);
+  return isNaN(parsed.getTime()) ? '' : Utilities.formatDate(parsed, tz, 'yyyy-MM-dd');
 }
 
 function apiManagerEditorLoad_(ss) {
