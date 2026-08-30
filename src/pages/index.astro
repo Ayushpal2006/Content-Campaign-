@@ -49,6 +49,20 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       <div id="today-status-grid" class="today-status-grid"></div>
     </section>
 
+    <section class="card today-running-card" aria-labelledby="today-running-title">
+      <div class="card-header">
+        <div>
+          <h2 id="today-running-title" class="card-title">Today — Running Videos</h2>
+          <p class="today-running-subtitle">Live stage, owner and blocker for every video planned today.</p>
+        </div>
+        <span id="today-running-count" class="chip chip-blue">0 videos</span>
+      </div>
+      <div id="today-running-list" class="today-running-list"></div>
+      <div id="today-running-empty" class="empty-state today-running-empty">
+        <p>No videos returned for today.</p>
+      </div>
+    </section>
+
     <!-- KPI Metric Cards Grid -->
     <div id="kpi-grid" class="metrics-grid">
       <!-- Injected dynamically -->
@@ -153,6 +167,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       const data = root.result || root.data || root;
 
       renderTodayMission(data);
+      renderTodayRunning(data);
 
       // 1. Render KPIs
       const kpiGrid = document.getElementById('kpi-grid');
@@ -342,6 +357,42 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           summary.textContent = `${uploaded}/${planned} uploaded · ${approved} approved · ${percent}% complete`;
         }
       }
+    }
+
+    function escapeTodayText(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+    }
+
+    function renderTodayRunning(data) {
+      const list = document.getElementById('today-running-list');
+      const empty = document.getElementById('today-running-empty');
+      const count = document.getElementById('today-running-count');
+      if (!list) return;
+      const items = Array.isArray(data.todayItems) ? data.todayItems : [];
+      const stageOrder = {'Script Pending':1,'Unassigned':1,'Script Ready':2,'Recording':3,'Raw Ready':4,'Editing':5,'QC Pending':6,'Changes':7,'Approved':8,'Uploaded':9,'Blocked':10};
+      items.sort((a, b) => (stageOrder[a.productionStatus] || 99) - (stageOrder[b.productionStatus] || 99));
+      if (count) count.textContent = `${items.length} video${items.length === 1 ? '' : 's'}`;
+      if (!items.length) {
+        list.innerHTML = '';
+        if (empty) empty.style.display = 'flex';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      list.innerHTML = items.map(item => {
+        const id = escapeTodayText(item.videoId || 'Not set');
+        const title = escapeTodayText((item.title || 'Script not added').split('\n')[0]);
+        const status = escapeTodayText(item.productionStatus || 'Not set');
+        const owner = escapeTodayText(item.editor || item.teacher || 'Unassigned');
+        const blocker = escapeTodayText(item.blocker || '');
+        return `<button class="today-running-row" type="button" data-video-id="${id}">
+          <span class="today-running-main"><strong>${id}</strong><span>${title}</span></span>
+          <span class="today-running-owner">${owner}</span>
+          <span class="chip ${blocker ? 'chip-red' : status === 'Uploaded' || status === 'Approved' ? 'chip-emerald' : 'chip-blue'}">${blocker || status}</span>
+        </button>`;
+      }).join('');
+      list.querySelectorAll('[data-video-id]').forEach(row => {
+        row.addEventListener('click', () => window.openVideoDrawer?.(row.dataset.videoId));
+      });
     }
 
     // Set refresh hook
