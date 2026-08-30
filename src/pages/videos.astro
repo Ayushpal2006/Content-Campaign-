@@ -13,7 +13,6 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           id="video-search-input"
           type="text"
           placeholder="Search by title, ID, teacher, editor..."
-          oninput="handleSearchChange()"
           style="width: 100%; padding: 0.45rem 0.75rem 0.45rem 2.25rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff;"
         />
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
@@ -30,7 +29,6 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         <!-- Status Filter -->
         <select
           id="status-filter-select"
-          onchange="handleFilterChange()"
           style="padding: 0.45rem 0.75rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff; color: var(--text-main); font-weight: 500;"
         >
           <option value="">All Statuses</option>
@@ -39,7 +37,6 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         <!-- Editor Filter -->
         <select
           id="editor-filter-select"
-          onchange="handleFilterChange()"
           style="padding: 0.45rem 0.75rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff; color: var(--text-main); font-weight: 500;"
         >
           <option value="">All Editors</option>
@@ -453,6 +450,9 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
     document.addEventListener('DOMContentLoaded', () => {
       loadVideosList();
       document.getElementById('create-video-form')?.addEventListener('submit', submitCreateVideo);
+      document.getElementById('video-search-input')?.addEventListener('input', handleSearchChange);
+      document.getElementById('status-filter-select')?.addEventListener('change', handleFilterChange);
+      document.getElementById('editor-filter-select')?.addEventListener('change', handleFilterChange);
     });
 
     function openCreateVideoModal() {

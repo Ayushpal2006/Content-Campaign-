@@ -32,7 +32,7 @@ const isLoginPage = activeTab === 'login';
     ) : (
       <div class="app-container">
         <!-- Mobile backdrop -->
-        <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="toggleMobileSidebar()"></div>
+        <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
         <!-- Sidebar Navigation -->
         <aside id="sidebar" class="sidebar">
@@ -105,7 +105,7 @@ const isLoginPage = activeTab === 'login';
         <div class="main-content">
           <header class="top-bar">
             <div class="top-bar-left">
-              <button class="mobile-menu-toggle" onclick="toggleMobileSidebar()" aria-label="Toggle navigation">
+              <button id="mobile-menu-toggle" class="mobile-menu-toggle" type="button" aria-label="Toggle navigation" aria-controls="sidebar" aria-expanded="false">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="3" y1="12" x2="21" y2="12" />
                   <line x1="3" y1="6" x2="21" y2="6" />
@@ -195,12 +195,37 @@ const isLoginPage = activeTab === 'login';
         return clean === '/login';
       }
 
-      function toggleMobileSidebar() {
+      function setMobileSidebar(open) {
         const sidebar = document.getElementById('sidebar');
         const backdrop = document.getElementById('sidebar-backdrop');
-        if (sidebar) sidebar.classList.toggle('mobile-open');
-        if (backdrop) backdrop.classList.toggle('mobile-open');
+        const toggle = document.getElementById('mobile-menu-toggle');
+        if (sidebar) sidebar.classList.toggle('mobile-open', Boolean(open));
+        if (backdrop) backdrop.classList.toggle('mobile-open', Boolean(open));
+        if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        document.body.classList.toggle('mobile-nav-open', Boolean(open));
       }
+
+      function toggleMobileSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        setMobileSidebar(!sidebar?.classList.contains('mobile-open'));
+      }
+      window.toggleMobileSidebar = toggleMobileSidebar;
+
+      (function bindMobileNavigation() {
+        const toggle = document.getElementById('mobile-menu-toggle');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        toggle?.addEventListener('click', toggleMobileSidebar);
+        backdrop?.addEventListener('click', () => setMobileSidebar(false));
+        document.querySelectorAll('#sidebar .nav-link').forEach(link => {
+          link.addEventListener('click', () => setMobileSidebar(false));
+        });
+        document.addEventListener('keydown', event => {
+          if (event.key === 'Escape') setMobileSidebar(false);
+        });
+        window.addEventListener('resize', () => {
+          if (window.innerWidth > 768) setMobileSidebar(false);
+        });
+      })();
 
       function showToast(message, type = 'info') {
         const root = document.getElementById('toast-root');

@@ -444,6 +444,16 @@ html, body {
 .today-status-item span { display: block; font-size: .65rem; opacity: .78; }
 .today-status-item.is-complete { background: rgb(16 185 129 / .3); }
 .today-status-item.is-alert { background: rgb(251 113 133 / .28); border-color: rgb(255 255 255 / .35); }
+.today-running-card { margin-bottom: 1.25rem; }
+.today-running-subtitle { margin-top: .2rem; color: var(--text-muted); font-size: .75rem; }
+.today-running-list { display: grid; max-height: 330px; overflow-y: auto; }
+.today-running-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 150px 140px; align-items: center; gap: .75rem; padding: .8rem 1rem; border: 0; border-top: 1px solid var(--border-subtle); background: #fff; color: var(--text-main); text-align: left; cursor: pointer; }
+.today-running-row:hover { background: var(--bg-subtle); }
+.today-running-main { min-width: 0; display: flex; gap: .65rem; align-items: center; }
+.today-running-main strong { color: var(--brand-600); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .75rem; white-space: nowrap; }
+.today-running-main span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; font-weight: 650; }
+.today-running-owner { color: var(--text-muted); font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-running-empty { padding: 1.5rem; }
 
 .mission-card { padding: .85rem; background: linear-gradient(145deg, #fff, #fff7fb); border: 1px solid var(--brand-200); border-radius: var(--radius-lg); }
 .mission-head { display: flex; justify-content: space-between; gap: .75rem; align-items: center; }
@@ -891,6 +901,7 @@ html, body {
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
+  body.mobile-nav-open { overflow: hidden; }
   .sidebar {
     transform: translateX(-100%);
   }
@@ -928,6 +939,10 @@ html, body {
   .card { border-radius: 10px; }
   .metrics-grid { gap: .6rem; }
   .metric-card { height: 82px; padding: .75rem; }
+  .today-running-row { grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; padding: .75rem; }
+  .today-running-main { display: grid; gap: .2rem; }
+  .today-running-owner { grid-column: 1; }
+  .today-running-row > .chip { grid-column: 2; grid-row: 1 / span 2; }
   .metric-value { font-size: 1.35rem; }
   .today-mission { padding: .85rem; }
   .today-status-grid { gap: .3rem; }
