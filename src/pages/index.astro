@@ -63,6 +63,17 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       </div>
     </section>
 
+    <section class="card dashboard-mis-card" aria-labelledby="dashboard-mis-title">
+      <div class="dashboard-mis-copy">
+        <span class="today-eyebrow">DAILY MIS EMAIL</span>
+        <h2 id="dashboard-mis-title">Management report preview</h2>
+        <p>Review today’s real pipeline numbers before the scheduled email is activated.</p>
+        <small>Automatic delivery needs the one-time Apps Script MIS trigger setup.</small>
+      </div>
+      <div id="dashboard-mis-summary" class="dashboard-mis-summary"></div>
+      <a class="btn btn-primary" href="/mis">Open MIS Preview →</a>
+    </section>
+
     <!-- KPI Metric Cards Grid -->
     <div id="kpi-grid" class="metrics-grid">
       <!-- Injected dynamically -->
@@ -119,7 +130,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
   <VideoDetailDrawer />
 
   <script is:inline>
-    async function loadDashboardData() {
+    async function loadDashboardData(forceRefresh = false) {
       const skeletons = document.getElementById('dashboard-skeletons');
       const content = document.getElementById('dashboard-content');
       const errorBox = document.getElementById('dashboard-error');
@@ -135,7 +146,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'dashboard' })
+          body: JSON.stringify({ action: 'bootstrap', refresh: Boolean(forceRefresh) })
         });
 
         const data = await res.json().catch(() => ({}));
@@ -164,10 +175,15 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
     function renderDashboard(raw) {
       const root = raw || {};
-      const data = root.result || root.data || root;
+      const payload = root.result || root.data || root;
+      const data = payload.dashboard || payload;
+      const bootstrapVideos = unwrapBootstrapVideos(payload.videos);
+      if (bootstrapVideos.length) applyTodayFallback(data, bootstrapVideos);
+      window.__infinityBootstrap = payload;
 
       renderTodayMission(data);
       renderTodayRunning(data);
+      renderMisShortcut(data);
 
       // 1. Render KPIs
       const kpiGrid = document.getElementById('kpi-grid');
@@ -305,6 +321,61 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       }
     }
 
+    function unwrapBootstrapVideos(value) {
+      if (Array.isArray(value)) return value;
+      if (!value || typeof value !== 'object') return [];
+      if (Array.isArray(value.items)) return value.items;
+      if (Array.isArray(value.videos)) return value.videos;
+      if (Array.isArray(value.rows)) return value.rows;
+      if (Array.isArray(value.data)) return value.data;
+      return [];
+    }
+
+    function indiaDateKey(value) {
+      if (value === undefined || value === null || value === '') return '';
+      const text = String(value).trim();
+      let match = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(text);
+      if (match) return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
+      match = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/.exec(text);
+      if (match) return `${match[3]}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}`;
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return '';
+      const parts = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Kolkata', year:'numeric', month:'2-digit', day:'2-digit' }).formatToParts(parsed);
+      const get = type => parts.find(part => part.type === type)?.value || '';
+      return `${get('year')}-${get('month')}-${get('day')}`;
+    }
+
+    function applyTodayFallback(data, videos) {
+      const todayKey = indiaDateKey(new Date());
+      const datedVideos = videos.filter(item => {
+        const raw = item?.rawRecord || {};
+        const publishDate = item?.publishDate ?? item?.['Publish Date'] ?? raw.publishDate ?? raw['Publish Date'];
+        return indiaDateKey(publishDate) === todayKey;
+      });
+      if (!datedVideos.length && Number(data.todayTotal || data.plannedToday || 0) > 0) return;
+
+      const todayByStatus = {};
+      const todayItems = datedVideos.map(item => {
+        const raw = item?.rawRecord || {};
+        const status = String(item.productionStatus || item.status || raw.productionStatus || raw['Production Status'] || 'Unassigned').trim() || 'Unassigned';
+        todayByStatus[status] = (todayByStatus[status] || 0) + 1;
+        return {
+          videoId: item.videoId || item.id || raw.videoId || raw['Video ID'] || '',
+          title: item.scriptPreview || item.title || raw.scriptPreview || raw.Script || '',
+          teacher: item.teacher || item.talent || raw.teacher || raw.Talent || '',
+          editor: item.editor || raw.editor || raw.Editor || '',
+          productionStatus: status,
+          slaStatus: item.slaStatus || item.sla || raw['SLA Status'] || '',
+          blocker: item.blocker || raw.Blocker || ''
+        };
+      });
+      data.todayTotal = datedVideos.length;
+      data.plannedToday = datedVideos.length;
+      data.todayByStatus = todayByStatus;
+      data.todayUploaded = Number(todayByStatus.Uploaded || 0);
+      data.todayItems = todayItems;
+    }
+
     function renderTodayMission(data) {
       const grid = document.getElementById('today-status-grid');
       const summary = document.getElementById('today-mission-summary');
@@ -395,8 +466,21 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       });
     }
 
+    function renderMisShortcut(data) {
+      const container = document.getElementById('dashboard-mis-summary');
+      if (!container) return;
+      const planned = Number(data.todayTotal ?? data.plannedToday ?? 0);
+      const uploaded = Number(data.todayUploaded || data.todayByStatus?.Uploaded || 0);
+      const attention = Number(data.overdue || 0) + Number(data.blocked || 0);
+      container.innerHTML = `
+        <span><strong>${planned}</strong> planned</span>
+        <span><strong>${uploaded}</strong> uploaded</span>
+        <span><strong>${attention}</strong> attention</span>
+      `;
+    }
+
     // Set refresh hook
-    window.__refreshOperationsData = loadDashboardData;
+    window.__refreshOperationsData = () => loadDashboardData(true);
 
     // Initial load
     document.addEventListener('DOMContentLoaded', () => {

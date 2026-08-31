@@ -43,13 +43,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const accessCode = typeof body.accessCode === 'string' ? body.accessCode.trim() : '';
 
     const expectedCode = context.env.APP_ACCESS_CODE?.trim();
-    const sessionSecret = context.env.SESSION_SECRET || 'infinity-default-session-secret-change-me';
+    const sessionSecret = context.env.SESSION_SECRET?.trim();
 
     if (!expectedCode) {
       return new Response(
         JSON.stringify({ ok: false, error: 'APP_ACCESS_CODE is not configured on server' }),
         {
           status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    if (!sessionSecret) {
+      return new Response(
+        JSON.stringify({ ok: false, error: 'SESSION_SECRET is not configured on server' }),
+        {
+          status: 503,
           headers: { 'Content-Type': 'application/json' },
         }
       );

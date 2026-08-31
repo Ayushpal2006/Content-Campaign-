@@ -160,6 +160,15 @@
       </div>
     </div>
 
+    <div id="manager-action-progress" class="manager-action-progress" style="display:none;" role="status" aria-live="polite">
+      <div class="manager-action-progress-head">
+        <strong id="manager-action-progress-title">Processing action…</strong>
+        <span id="manager-action-progress-time">0s elapsed</span>
+      </div>
+      <div class="manager-action-progress-track"><span></span></div>
+      <p id="manager-action-progress-note">Usually completes in 5–20 seconds. Keep this screen open.</p>
+    </div>
+
     <!-- Publishing confirmation -->
     <div style="display:flex; flex-direction:column; gap:0.45rem;">
       <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Publishing Confirmation</span>
@@ -207,6 +216,7 @@
   let activeSelectedVideoId = '';
   let isDetectRawRunning = false;
   let isManagerActionRunning = false;
+  let managerActionTimer = null;
   let editorOptionsLoaded = false;
   const videoDetailCache = new Map();
   const editorPhoneByName = new Map();
@@ -512,6 +522,10 @@
     setDisabled('qc-changes-btn', status !== 'QC Pending', 'QC actions require QC Pending status.');
     setDisabled('qc-approve-btn', status !== 'QC Pending', 'QC actions require QC Pending status.');
     setDisabled('mark-uploaded-btn', status !== 'Approved', 'The video must be QC Approved first.');
+    const qcApproveButton = document.getElementById('qc-approve-btn');
+    const qcChangesButton = document.getElementById('qc-changes-btn');
+    if (qcApproveButton) qcApproveButton.textContent = ['Approved', 'Uploaded'].includes(status) ? 'QC Approved ✓' : 'Approve QC ✓';
+    if (qcChangesButton) qcChangesButton.textContent = status === 'Changes' ? 'Changes Requested ✓' : 'Request Changes';
   }
 
   function managerErrorMessage(data, fallback) {
@@ -520,9 +534,47 @@
     return fallback;
   }
 
-  async function runManagerAction(action, payload, successMessage) {
+  function startManagerActionProgress(title, estimate = 'Usually completes in 5–20 seconds. Keep this screen open.') {
+    const panel = document.getElementById('manager-action-progress');
+    const titleEl = document.getElementById('manager-action-progress-title');
+    const timeEl = document.getElementById('manager-action-progress-time');
+    const noteEl = document.getElementById('manager-action-progress-note');
+    const startedAt = Date.now();
+    if (panel) panel.style.display = 'block';
+    if (titleEl) titleEl.textContent = title;
+    if (noteEl) noteEl.textContent = estimate;
+    if (timeEl) timeEl.textContent = '0s elapsed';
+    if (managerActionTimer) clearInterval(managerActionTimer);
+    managerActionTimer = setInterval(() => {
+      const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      if (timeEl) timeEl.textContent = `${seconds}s elapsed`;
+      if (noteEl && seconds >= 20) noteEl.textContent = 'Apps Script is taking longer than usual. The request is still running safely.';
+    }, 1000);
+  }
+
+  function finishManagerActionProgress(message, succeeded) {
+    if (managerActionTimer) clearInterval(managerActionTimer);
+    managerActionTimer = null;
+    const panel = document.getElementById('manager-action-progress');
+    const titleEl = document.getElementById('manager-action-progress-title');
+    const noteEl = document.getElementById('manager-action-progress-note');
+    if (panel) panel.classList.toggle('is-success', Boolean(succeeded));
+    if (panel) panel.classList.toggle('is-error', !succeeded);
+    if (titleEl) titleEl.textContent = succeeded ? 'Completed ✓' : 'Action needs attention';
+    if (noteEl) noteEl.textContent = message;
+  }
+
+  async function runManagerAction(action, payload, successMessage, options = {}) {
     if (!activeSelectedVideoId || isManagerActionRunning) return null;
     isManagerActionRunning = true;
+    const actionButton = options.buttonId ? document.getElementById(options.buttonId) : null;
+    const originalButtonText = actionButton?.textContent || '';
+    if (actionButton) {
+      actionButton.disabled = true;
+      actionButton.setAttribute('aria-busy', 'true');
+      actionButton.textContent = options.pendingLabel || 'Processing…';
+    }
+    startManagerActionProgress(options.progressTitle || 'Processing action…', options.estimateText);
     const box = document.getElementById('manager-action-message');
     if (box) {
       box.style.display = 'block'; box.style.background = 'var(--bg-subtle)'; box.style.color = 'var(--text-main)'; box.textContent = 'Working...';
@@ -545,15 +597,23 @@
       if (!res || !res.ok || data.ok === false) throw new Error(managerErrorMessage(data, 'Manager action failed'));
       videoDetailCache.delete(activeSelectedVideoId);
       if (box) { box.style.background = '#f0fdf4'; box.style.color = '#15803d'; box.textContent = successMessage; }
+      if (actionButton) actionButton.textContent = options.successLabel || 'Completed ✓';
+      finishManagerActionProgress(successMessage, true);
       showToast(successMessage, 'success');
       await openVideoDrawer(activeSelectedVideoId);
       if (typeof window.__refreshOperationsData === 'function') window.__refreshOperationsData();
       return data;
     } catch (error) {
       if (box) { box.style.background = '#fff1f2'; box.style.color = '#be123c'; box.textContent = error.message || 'Manager action failed'; }
+      if (actionButton) {
+        actionButton.disabled = false;
+        actionButton.textContent = originalButtonText;
+      }
+      finishManagerActionProgress(error.message || 'Manager action failed', false);
       showToast(error.message || 'Manager action failed', 'error');
       return null;
     } finally {
+      if (actionButton) actionButton.removeAttribute('aria-busy');
       isManagerActionRunning = false;
     }
   }
@@ -573,7 +633,13 @@
     const videoType = document.getElementById('drawer-video-type')?.value || 'Original Recording';
     if (videoType === 'Original Recording' && !script) { showToast('Recording Script is required', 'error'); return; }
     if (!editorBrief) { showToast('Editor Brief is required', 'error'); return; }
-    return runManagerAction('approve_script', { script: script || editorBrief, recordingScript: script, editorBrief, videoType }, 'Content approved and Drive folders prepared.');
+    return runManagerAction('approve_script', { script: script || editorBrief, recordingScript: script, editorBrief, videoType }, 'Content approved and Drive folders prepared.', {
+      buttonId: 'approve-script-btn',
+      pendingLabel: 'Preparing folders…',
+      successLabel: 'Content Approved ✓',
+      progressTitle: 'Approving content and preparing Drive folders…',
+      estimateText: 'Usually completes in 8–25 seconds because Google Drive folders are checked and prepared.'
+    });
   }
 
   function assignManagerEditor() {
@@ -588,13 +654,24 @@
 
   function submitManagerQcApprove() {
     const notes = document.getElementById('drawer-qc-notes')?.value.trim() || '';
-    return runManagerAction('qc_approve', { notes }, 'QC approved. Video is ready for publishing.');
+    return runManagerAction('qc_approve', { notes }, 'QC approved. Video is ready for publishing.', {
+      buttonId: 'qc-approve-btn',
+      pendingLabel: 'Approving QC…',
+      successLabel: 'QC Approved ✓',
+      progressTitle: 'Saving QC approval…',
+      estimateText: 'Usually completes in 5–20 seconds. The button stays locked to prevent duplicate approvals.'
+    });
   }
 
   function submitManagerQcChanges() {
     const notes = document.getElementById('drawer-qc-notes')?.value.trim() || '';
     if (!notes) { showToast('Change notes are required', 'error'); return; }
-    return runManagerAction('qc_changes', { notes }, 'Changes requested and sent back to editing.');
+    return runManagerAction('qc_changes', { notes }, 'Changes requested and sent back to editing.', {
+      buttonId: 'qc-changes-btn',
+      pendingLabel: 'Sending changes…',
+      successLabel: 'Changes Requested ✓',
+      progressTitle: 'Saving QC changes…'
+    });
   }
 
   function markManagerUploaded() {

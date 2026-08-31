@@ -3,3 +3,5 @@ APPS_SCRIPT_API_URL=
 INFINITY_API_TOKEN=
 APP_ACCESS_CODE=
 SESSION_SECRET=
+# Read-only API responses are cached at the Cloudflare edge for this many seconds (0 disables cache).
+INFINITY_READ_CACHE_SECONDS=30
