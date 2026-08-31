@@ -9,6 +9,7 @@ const INFINITY_MIS = {
   RECIPIENT_KEY: 'MIS_RECIPIENT_EMAILS',
   CC_KEY: 'MIS_CC_EMAILS',
   SEND_HOUR_KEY: 'MIS_SEND_HOUR',
+  CUSTOM_NOTE_KEY: 'MIS_CUSTOM_NOTE',
   DEFAULT_HOUR: 22,
   HANDLER: 'sendDailyCampaignMis'
 };
@@ -29,6 +30,75 @@ function misConfig_(ss) {
     if (key) config[key] = String(row[1] || '').trim();
   });
   return config;
+}
+
+function misSpreadsheet_() {
+  if (typeof getSS_ === 'function') return getSS_();
+  const active = SpreadsheetApp.getActive();
+  if (!active) throw new Error('Infinity spreadsheet is unavailable in this execution context.');
+  return active;
+}
+
+function misNormalizeEmails_(value, required) {
+  const emails = String(value || '')
+    .split(/[;,]/)
+    .map(email => email.trim().toLowerCase())
+    .filter(Boolean);
+  if (required && !emails.length) throw new Error('At least one MIS recipient email is required.');
+  const invalid = emails.find(email => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+  if (invalid) throw new Error(`Invalid MIS email address: ${invalid}`);
+  return Array.from(new Set(emails)).join(',');
+}
+
+function misUpsertConfig_(ss, key, value, note) {
+  const sheet = ss.getSheetByName('CONFIG');
+  if (!sheet) throw new Error('CONFIG sheet not found.');
+  const lastRow = Math.max(1, sheet.getLastRow());
+  const keys = lastRow < 2 ? [] : sheet.getRange(2, 1, lastRow - 1, 1).getDisplayValues();
+  const index = keys.findIndex(row => String(row[0] || '').trim() === key);
+  const row = index >= 0 ? index + 2 : lastRow + 1;
+  sheet.getRange(row, 1, 1, 3).setValues([[key, String(value ?? ''), note || '']]);
+}
+
+function getDailyMisSettings_(ss) {
+  const config = misConfig_(ss);
+  const trigger = ScriptApp.getProjectTriggers().find(item => item.getHandlerFunction() === INFINITY_MIS.HANDLER);
+  return {
+    recipients: String(config[INFINITY_MIS.RECIPIENT_KEY] || '').trim(),
+    cc: String(config[INFINITY_MIS.CC_KEY] || '').trim(),
+    sendHour: Math.max(0, Math.min(23, Number(config[INFINITY_MIS.SEND_HOUR_KEY] || INFINITY_MIS.DEFAULT_HOUR))),
+    customNote: String(config[INFINITY_MIS.CUSTOM_NOTE_KEY] || '').trim(),
+    triggerEnabled: Boolean(trigger),
+    timezone: Session.getScriptTimeZone() || 'Asia/Kolkata',
+    remainingDailyQuota: MailApp.getRemainingDailyQuota()
+  };
+}
+
+function saveDailyMisSettings_(ss, body) {
+  const recipients = misNormalizeEmails_(body && body.recipients, true);
+  const cc = misNormalizeEmails_(body && body.cc, false);
+  const sendHour = Number(body && body.sendHour);
+  if (!Number.isInteger(sendHour) || sendHour < 0 || sendHour > 23) {
+    throw new Error('MIS send hour must be a whole number from 0 to 23.');
+  }
+  const customNote = String((body && body.customNote) || '').trim().slice(0, 1200);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    misUpsertConfig_(ss, INFINITY_MIS.RECIPIENT_KEY, recipients, 'Daily MIS primary recipients; editable from the app');
+    misUpsertConfig_(ss, INFINITY_MIS.CC_KEY, cc, 'Daily MIS CC recipients; editable from the app');
+    misUpsertConfig_(ss, INFINITY_MIS.SEND_HOUR_KEY, sendHour, 'Daily MIS send hour in project timezone');
+    misUpsertConfig_(ss, INFINITY_MIS.CUSTOM_NOTE_KEY, customNote, 'Optional management note included in the MIS email');
+  } finally {
+    lock.releaseLock();
+  }
+  return getDailyMisSettings_(ss);
+}
+
+function misEscapeHtml_(value) {
+  return String(value || '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
 }
 
 function misDateKey_(value, tz) {
@@ -113,9 +183,10 @@ function misMetricCard_(label, value, note, color) {
   return `<td style="width:25%;padding:6px;vertical-align:top"><div style="border:1px solid #fbcfe8;border-radius:12px;padding:14px;background:#fff"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;font-weight:700">${label}</div><div style="font-size:26px;line-height:1.15;color:${color || '#be185d'};font-weight:800;margin-top:5px">${value}</div><div style="font-size:11px;color:#94a3b8;margin-top:4px">${note || ''}</div></div></td>`;
 }
 
-function buildDailyCampaignMisHtml_(data) {
+function buildDailyCampaignMisHtml_(data, customNote) {
   const completion = data.totalVideos ? Math.round((data.uploadedTotal / data.totalVideos) * 100) : 0;
   const todayCompletion = data.plannedToday ? Math.round((data.uploadedToday / data.plannedToday) * 100) : 0;
+  const safeCustomNote = misEscapeHtml_(customNote).replace(/\n/g, '<br>');
   return `<!doctype html><html><body style="margin:0;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">
   <table role="presentation" width="680" cellpadding="0" cellspacing="0" style="width:100%;max-width:680px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 8px 30px rgba(15,23,42,.08)">
@@ -150,29 +221,32 @@ function buildDailyCampaignMisHtml_(data) {
       </tr></table>
       <p style="font-size:11px;line-height:1.5;color:#64748b;margin:10px 6px 0">Projection is computed from the last 7 days’ completed uploads and current Editing/QC inventory. It is a planning estimate, not a guaranteed commitment.</p>
     </td></tr>
+    ${safeCustomNote ? `<tr><td style="padding:0 28px 20px"><div style="padding:14px;border:1px solid #fbcfe8;border-radius:12px;background:#fff7fb;font-size:12px;line-height:1.55;color:#831843"><strong>Management note</strong><br>${safeCustomNote}</div></td></tr>` : ''}
     <tr><td style="padding:16px 28px;background:#fff1f2;color:#9f1239;font-size:12px;line-height:1.5"><strong>Manager focus:</strong> Clear ${data.overdue} overdue and ${data.blocked} blocked item(s); protect the next expected delivery window.</td></tr>
   </table></td></tr></table></body></html>`;
 }
 
-function sendDailyCampaignMis() {
-  const ss = SpreadsheetApp.getActive();
+function sendDailyCampaignMis(options) {
+  options = options || {};
+  const ss = misSpreadsheet_();
   const config = misConfig_(ss);
-  const recipients = String(config[INFINITY_MIS.RECIPIENT_KEY] || '').trim();
-  if (!recipients) throw new Error('Set MIS_RECIPIENT_EMAILS in CONFIG before sending.');
+  const recipients = misNormalizeEmails_(config[INFINITY_MIS.RECIPIENT_KEY], true);
+  const cc = misNormalizeEmails_(config[INFINITY_MIS.CC_KEY], false);
   const data = buildDailyCampaignMisData_(ss);
+  const subject = `${options.test ? '[TEST] ' : ''}Infinity Daily MIS · ${data.dateLabel} · ${data.uploadedToday}/${data.plannedToday} uploaded`;
   MailApp.sendEmail({
     to: recipients,
-    cc: String(config[INFINITY_MIS.CC_KEY] || '').trim(),
-    subject: `Infinity Daily MIS · ${data.dateLabel} · ${data.uploadedToday}/${data.plannedToday} uploaded`,
+    cc,
+    subject,
     body: `Infinity Daily MIS for ${data.dateLabel}. Planned: ${data.plannedToday}, Uploaded: ${data.uploadedToday}, Remaining campaign: ${data.remaining}.`,
-    htmlBody: buildDailyCampaignMisHtml_(data),
+    htmlBody: buildDailyCampaignMisHtml_(data, config[INFINITY_MIS.CUSTOM_NOTE_KEY]),
     name: 'Infinity Operations'
   });
-  return { ok: true, recipients, data };
+  return { ok: true, test: Boolean(options.test), recipients, cc, subject, data };
 }
 
 function setupDailyMisTrigger() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = misSpreadsheet_();
   const config = misConfig_(ss);
   const hour = Math.max(0, Math.min(23, Number(config[INFINITY_MIS.SEND_HOUR_KEY] || INFINITY_MIS.DEFAULT_HOUR)));
   ScriptApp.getProjectTriggers().filter(trigger => trigger.getHandlerFunction() === INFINITY_MIS.HANDLER).forEach(trigger => ScriptApp.deleteTrigger(trigger));
@@ -181,5 +255,23 @@ function setupDailyMisTrigger() {
 }
 
 function previewDailyCampaignMisHtml() {
-  return buildDailyCampaignMisHtml_(buildDailyCampaignMisData_(SpreadsheetApp.getActive()));
+  const ss = misSpreadsheet_();
+  const config = misConfig_(ss);
+  return buildDailyCampaignMisHtml_(buildDailyCampaignMisData_(ss), config[INFINITY_MIS.CUSTOM_NOTE_KEY]);
+}
+
+function apiGetMisSettings_(ss) {
+  return getDailyMisSettings_(ss);
+}
+
+function apiSaveMisSettings_(ss, body) {
+  return saveDailyMisSettings_(ss, body || {});
+}
+
+function apiSendMisTest_() {
+  return sendDailyCampaignMis({ test: true });
+}
+
+function apiSetupMisTrigger_() {
+  return setupDailyMisTrigger();
 }
