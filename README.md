@@ -129,6 +129,10 @@ All requests to `/api/infinity` forward only the following exact actions to the 
 * `qc_approve`: Approves the current FINAL revision.
 * `qc_changes`: Requests changes; non-empty QC notes are required.
 * `mark_uploaded`: Records account and post URL after QC approval.
+* `mis_config`: Reads Daily MIS recipients, note, send-hour window, trigger status, and remaining mail quota.
+* `save_mis_config`: Validates and saves editable Daily MIS delivery settings in Sheet CONFIG.
+* `send_mis_test`: Sends an explicit `[TEST]` MIS using the saved settings without enabling automation.
+* `setup_mis_trigger`: Creates or safely replaces the single Daily MIS schedule.
 
 Read-heavy dashboard actions use a 60-second Apps Script cache. Every successful manager write invalidates that cache, so the UI avoids repeated full-sheet reads without showing stale workflow changes.
 
@@ -145,6 +149,7 @@ The complete manager API add-on is also kept in `apps-script/manager-api-addon.j
 
 - `apps-script/manager-api-addon.js` maps UI-facing `Teacher` to the existing `Talent` Sheet column, and `Editor Brief` to the existing `Recording Notes` column. Run `setupInfinityContentFields()` once only if the `Video Type` column is missing.
 - `apps-script/daily-mis-addon.js` builds a truthful HTML email from VIDEOS statuses and timestamps. It does not invent completions.
+- The app's **Daily MIS** page can edit To/CC, an optional management note, and the 0–23 delivery window; settings remain in the Sheet rather than frontend source.
 - Add these CONFIG rows before enabling email delivery:
   - `MIS_RECIPIENT_EMAILS`: comma-separated recipient emails
   - `MIS_CC_EMAILS`: optional comma-separated CC emails

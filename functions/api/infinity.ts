@@ -31,6 +31,10 @@ const ALLOWED_ACTIONS = new Set([
   'qc_approve',
   'qc_changes',
   'mark_uploaded',
+  'mis_config',
+  'save_mis_config',
+  'send_mis_test',
+  'setup_mis_trigger',
 ]);
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
