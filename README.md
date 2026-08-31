@@ -79,6 +79,8 @@ node test-suite.js
 
 ## ⚡ Deployment to Cloudflare Pages
 
+Operational recovery, Apps Script activation order, and the QC Changes workflow are documented in [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md).
+
 ### Option A: Direct CLI Deployment via Wrangler
 1. Authenticate with Cloudflare:
    ```bash
@@ -172,7 +174,7 @@ npx wrangler pages dev dist --port 8790
 
 - Install from the header **Install** button on Android/desktop Chromium. On iPhone, use Safari **Share → Add to Home Screen**.
 - Open the bell and press **Enable** once on every phone or computer that should receive alerts.
-- While the app is running, it checks every 90 seconds for QC, Changes, editor reassignment, RAW/FINAL readiness, and stage movement.
+- While the app is visible, it performs a forced fresh check about every 60 seconds for QC, Changes, blockers, execution errors, editor reassignment, RAW/FINAL readiness, and stage movement.
 - The first successful check creates a baseline and intentionally does not flood the device with historical alerts.
 - The service worker never caches API, session, HTML, or Google Sheet responses. It caches only static UI assets.
 - Guaranteed push while the PWA is fully closed is not included. That requires persistent push subscriptions plus a server-side event sender.
