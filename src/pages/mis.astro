@@ -22,17 +22,55 @@ import Layout from '../layouts/Layout.astro';
         <h3>Production pipeline</h3>
         <div class="table-container"><table class="compact-table"><thead><tr><th>Stage</th><th>Today</th><th>Campaign</th></tr></thead><tbody id="mis-pipeline"></tbody></table></div>
         <div class="mis-projection-note"><strong>Projection:</strong> The scheduled email calculates conservative, expected and stretch delivery from real 7-day uploaded velocity and current Editing/QC inventory.</div>
+        <div id="mis-custom-note-preview" class="mis-custom-note-preview" style="display:none;"></div>
       </div>
       <div id="mis-focus" class="mis-email-focus">Manager focus will appear here.</div>
     </div>
 
+    <section class="card mis-settings-card" aria-labelledby="mis-settings-title">
+      <div class="mis-settings-head">
+        <div>
+          <div class="today-eyebrow" style="color:var(--brand-700);">DELIVERY SETTINGS</div>
+          <h3 id="mis-settings-title">Recipients, note and schedule</h3>
+          <p>Saved in the Sheet CONFIG tab. Use comma-separated addresses for multiple recipients.</p>
+        </div>
+        <span id="mis-trigger-status" class="chip chip-default">Checking schedule…</span>
+      </div>
+      <div id="mis-settings-error" class="error-state" style="display:none;"></div>
+      <div class="mis-settings-grid">
+        <label class="manager-field mis-field-wide">To
+          <input id="mis-recipients" type="text" inputmode="email" autocomplete="off" placeholder="manager@example.com" />
+        </label>
+        <label class="manager-field mis-field-wide">CC
+          <input id="mis-cc" type="text" inputmode="email" autocomplete="off" placeholder="optional@example.com" />
+        </label>
+        <label class="manager-field">Daily send hour
+          <input id="mis-send-hour" type="number" min="0" max="23" step="1" value="22" />
+        </label>
+        <div class="mis-setting-meta">
+          <strong id="mis-timezone">Asia/Kolkata</strong>
+          <span id="mis-quota">Mail quota: —</span>
+          <small>Apps Script sends within the selected hourly window, not at an exact minute.</small>
+        </div>
+        <label class="manager-field mis-field-full">Management note (optional)
+          <textarea id="mis-custom-note" rows="4" maxlength="1200" placeholder="Add today’s context, risks or management ask. This appears inside the email."></textarea>
+        </label>
+      </div>
+      <div class="mis-settings-actions">
+        <button id="mis-save-btn" class="btn btn-secondary" type="button">Save Settings</button>
+        <button id="mis-test-btn" class="btn btn-primary" type="button">Save & Send Test</button>
+        <button id="mis-schedule-btn" class="btn btn-secondary" type="button">Enable / Update Daily Schedule</button>
+      </div>
+      <div id="mis-settings-message" class="manager-action-progress" style="display:none;" role="status" aria-live="polite"></div>
+    </section>
+
     <div class="card" style="padding:1rem 1.2rem;">
       <h3 style="font-size:.9rem;">Email automation activation</h3>
       <ol style="margin:.6rem 0 0 1.1rem;font-size:.8rem;color:var(--text-muted);line-height:1.7;">
-        <li>Add <code>apps-script/daily-mis-addon.js</code> to the bound Apps Script project.</li>
-        <li>Set <code>MIS_RECIPIENT_EMAILS</code>, optional <code>MIS_CC_EMAILS</code>, and <code>MIS_SEND_HOUR</code> in CONFIG.</li>
-        <li>Run <code>sendDailyCampaignMis()</code> once for a reviewed test email.</li>
-        <li>Run <code>setupDailyMisTrigger()</code> once to create the daily trigger.</li>
+        <li>Deploy the latest canonical Apps Script source and web-app version.</li>
+        <li>Review the live preview, recipients and optional management note above.</li>
+        <li>Use <strong>Save & Send Test</strong>; test messages are prefixed with <code>[TEST]</code>.</li>
+        <li>Use <strong>Enable / Update Daily Schedule</strong> only after the test is correct.</li>
       </ol>
     </div>
   </div>
@@ -74,7 +112,113 @@ import Layout from '../layouts/Layout.astro';
       document.getElementById('mis-focus').innerHTML = `<strong>Manager focus:</strong> Clear ${overdue} overdue and ${blocked} blocked item(s); protect the next delivery window.`;
       const last = document.getElementById('last-updated-text'); if (last) last.textContent = 'MIS refreshed just now';
     }
+
+    function apiError(raw, fallback) {
+      if (raw?.error?.message) return raw.error.message;
+      if (typeof raw?.error === 'string') return raw.error;
+      return fallback;
+    }
+
+    async function misApi(action, payload = {}) {
+      const response = await fetch('/api/infinity', {
+        method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ action, ...payload })
+      });
+      const raw = await response.json().catch(() => ({}));
+      if (!response.ok || raw.ok === false) throw new Error(apiError(raw, `MIS action failed: ${action}`));
+      return raw.result || raw.data || raw;
+    }
+
+    function renderMisSettings(settings) {
+      document.getElementById('mis-recipients').value = settings.recipients || '';
+      document.getElementById('mis-cc').value = settings.cc || '';
+      document.getElementById('mis-send-hour').value = Number.isFinite(Number(settings.sendHour)) ? String(settings.sendHour) : '22';
+      document.getElementById('mis-custom-note').value = settings.customNote || '';
+      document.getElementById('mis-timezone').textContent = settings.timezone || 'Asia/Kolkata';
+      document.getElementById('mis-quota').textContent = `Mail quota remaining today: ${settings.remainingDailyQuota ?? '—'}`;
+      const status = document.getElementById('mis-trigger-status');
+      status.textContent = settings.triggerEnabled ? `Daily schedule active · ${String(settings.sendHour).padStart(2,'0')}:00 window` : 'Daily schedule off';
+      status.className = `chip ${settings.triggerEnabled ? 'chip-emerald' : 'chip-amber'}`;
+      updateCustomNotePreview();
+    }
+
+    async function loadMisSettings() {
+      const error = document.getElementById('mis-settings-error');
+      try {
+        const settings = await misApi('mis_config', { refresh:true });
+        error.style.display = 'none';
+        renderMisSettings(settings);
+      } catch (e) {
+        error.style.display = 'block';
+        error.textContent = `${e.message || 'Could not load MIS settings'} Deploy the latest Apps Script version first.`;
+      }
+    }
+
+    function settingsPayload() {
+      return {
+        recipients: document.getElementById('mis-recipients').value.trim(),
+        cc: document.getElementById('mis-cc').value.trim(),
+        sendHour: Number(document.getElementById('mis-send-hour').value),
+        customNote: document.getElementById('mis-custom-note').value.trim()
+      };
+    }
+
+    function setSettingsBusy(busy, message = '') {
+      ['mis-save-btn','mis-test-btn','mis-schedule-btn'].forEach(id => { const button = document.getElementById(id); if (button) button.disabled = busy; });
+      const box = document.getElementById('mis-settings-message');
+      if (message) { box.style.display = 'block'; box.className = 'manager-action-progress'; box.textContent = message; }
+    }
+
+    function finishSettingsAction(message, success) {
+      setSettingsBusy(false);
+      const box = document.getElementById('mis-settings-message');
+      box.style.display = 'block';
+      box.className = `manager-action-progress ${success ? 'is-success' : 'is-error'}`;
+      box.textContent = message;
+      window.showToast?.(message, success ? 'success' : 'error');
+    }
+
+    async function saveMisSettings(showSuccess = true) {
+      const settings = await misApi('save_mis_config', settingsPayload());
+      renderMisSettings(settings);
+      if (showSuccess) finishSettingsAction('MIS settings saved in the Sheet.', true);
+      return settings;
+    }
+
+    async function handleSettingsAction(kind) {
+      setSettingsBusy(true, kind === 'test' ? 'Saving settings and sending a test email…' : kind === 'schedule' ? 'Saving settings and updating the daily schedule…' : 'Saving MIS settings…');
+      try {
+        await saveMisSettings(false);
+        if (kind === 'test') {
+          const result = await misApi('send_mis_test');
+          finishSettingsAction(`Test MIS sent to ${result.recipients}${result.cc ? ` · CC ${result.cc}` : ''}.`, true);
+        } else if (kind === 'schedule') {
+          const result = await misApi('setup_mis_trigger');
+          finishSettingsAction(`Daily MIS schedule active in the ${String(result.hour).padStart(2,'0')}:00 ${result.timezone} window.`, true);
+          await loadMisSettings();
+        } else {
+          finishSettingsAction('MIS settings saved in the Sheet.', true);
+        }
+      } catch (e) {
+        finishSettingsAction(e.message || 'MIS action failed.', false);
+      }
+    }
+
+    function updateCustomNotePreview() {
+      const preview = document.getElementById('mis-custom-note-preview');
+      const note = document.getElementById('mis-custom-note')?.value.trim() || '';
+      preview.style.display = note ? 'block' : 'none';
+      preview.textContent = note ? `Management note: ${note}` : '';
+    }
+
     window.__refreshOperationsData = loadMis;
-    document.addEventListener('DOMContentLoaded', loadMis);
+    document.addEventListener('DOMContentLoaded', () => {
+      loadMis();
+      loadMisSettings();
+      document.getElementById('mis-save-btn')?.addEventListener('click', () => handleSettingsAction('save'));
+      document.getElementById('mis-test-btn')?.addEventListener('click', () => handleSettingsAction('test'));
+      document.getElementById('mis-schedule-btn')?.addEventListener('click', () => handleSettingsAction('schedule'));
+      document.getElementById('mis-custom-note')?.addEventListener('input', updateCustomNotePreview);
+    });
   </script>
 </Layout>
