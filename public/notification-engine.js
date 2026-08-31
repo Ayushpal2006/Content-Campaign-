@@ -3,8 +3,8 @@
   const FEED_KEY = 'infinity.activity-feed.v1';
   const LAST_POLL_KEY = 'infinity.last-activity-poll.v1';
   const POLL_LEASE_KEY = 'infinity.activity-poll-lease.v1';
-  const POLL_INTERVAL_MS = 90_000;
-  const MIN_POLL_GAP_MS = 70_000;
+  const POLL_INTERVAL_MS = 60_000;
+  const MIN_POLL_GAP_MS = 45_000;
   const MAX_FEED_ITEMS = 30;
   const TAB_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let deferredInstallPrompt = null;
@@ -42,7 +42,9 @@
       editor: String(row?.editor || row?.assignedTo || '').trim(),
       sla: String(row?.slaStatus || row?.sla || '').trim(),
       qcStatus: String(row?.qcStatus || row?.['QC Status'] || '').trim(),
-      qcNotes: String(row?.qcNotes || row?.['QC Notes'] || '').trim(),
+      qcNotes: String(row?.qcChangeNotes || row?.qcNotes || row?.['QC Change Notes'] || row?.['QC Notes'] || '').trim(),
+      blocker: String(row?.blocker || row?.Blocker || '').trim(),
+      lastErrorAt: String(row?.lastErrorAt || row?.['Last Error At'] || '').trim(),
       rawReady: Boolean(row?.rawFileUrl || row?.rawLink || row?.rawUrl),
       finalReady: Boolean(row?.finalFileUrl || row?.finalLink || row?.finalUrl)
     };
@@ -54,6 +56,7 @@
     const editorChanged = previous.editor !== current.editor;
     const slaChanged = previous.sla !== current.sla;
     const qcChanged = previous.qcStatus !== current.qcStatus || previous.qcNotes !== current.qcNotes;
+    const blockerChanged = previous.blocker !== current.blocker || previous.lastErrorAt !== current.lastErrorAt;
     const normalizedStatus = `${current.status} ${current.qcStatus}`.toLowerCase();
 
     if (statusChanged && /change|revision|rework/.test(normalizedStatus)) {
@@ -64,6 +67,9 @@
     }
     if (qcChanged && current.qcNotes) {
       return { level: 'qc', title: `QC notes updated · ${current.id}`, message: current.qcNotes };
+    }
+    if (blockerChanged && (current.blocker || current.lastErrorAt)) {
+      return { level: 'urgent', title: `Workflow problem · ${current.id}`, message: current.blocker || `Last error: ${current.lastErrorAt}` };
     }
     if (slaChanged && /overdue|blocked|breach/.test(current.sla.toLowerCase())) {
       return { level: 'urgent', title: `SLA alert · ${current.id}`, message: current.sla };
@@ -131,6 +137,7 @@
     const previous = readJson(SNAPSHOT_KEY, null);
     writeJson(SNAPSHOT_KEY, current);
     localStorage.setItem(LAST_POLL_KEY, new Date().toISOString());
+    window.dispatchEvent(new CustomEvent('infinity:videos-updated', { detail: { rows } }));
 
     if (!previous || typeof previous !== 'object') return;
     const activities = currentList.map((video) => {
@@ -156,7 +163,7 @@
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ action: 'videos' })
+        body: JSON.stringify({ action: 'videos', refresh: true, limit: 500 })
       });
       if (response.status === 401) return;
       const payload = await response.json().catch(() => ({}));
@@ -204,7 +211,7 @@
       status.textContent = 'Browser alerts are not supported here.';
       button.hidden = true;
     } else if (Notification.permission === 'granted') {
-      status.textContent = 'Phone/PC alerts enabled · checks every 90 sec';
+      status.textContent = 'Phone/PC alerts enabled · checks every 60 sec';
       button.textContent = 'Enabled';
       button.disabled = true;
     } else if (Notification.permission === 'denied') {
