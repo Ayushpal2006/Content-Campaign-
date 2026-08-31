@@ -44,6 +44,15 @@
       <div id="drawer-mission-steps" class="mission-steps"></div>
     </div>
 
+    <div id="drawer-operational-alert" class="operational-alert" style="display:none;" role="alert">
+      <div class="operational-alert-head">
+        <strong id="drawer-operational-alert-title">Action required</strong>
+        <span id="drawer-operational-alert-badge" class="chip chip-red">Issue</span>
+      </div>
+      <p id="drawer-operational-alert-text"></p>
+      <small id="drawer-operational-alert-help">Open the QC section below, follow the instruction, upload the corrected FINAL file, then run Detect FINAL.</small>
+    </div>
+
     <!-- Metadata Grid -->
     <div class="card" style="padding: 0.875rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-subtle);">
       <div>
@@ -294,6 +303,9 @@
     const editor = safeVal(obj.editor || obj.assignedTo);
     const status = safeVal(obj.productionStatus || obj.status || obj.state);
     const sla = safeVal(obj.slaStatus || obj.sla);
+    const qcChangeNotes = safeVal(obj.qcChangeNotes || obj.qcNotes);
+    const blocker = safeVal(obj.blocker);
+    const lastErrorAt = safeVal(obj.lastErrorAt);
 
     const mainFolder = obj.driveFolderUrl;
     const rawFolder = obj.rawFolderUrl || obj.rawFolder;
@@ -322,6 +334,7 @@
     if (qcNotesEl) qcNotesEl.value = safeVal(obj.qcChangeNotes) === '—' ? '' : safeVal(obj.qcChangeNotes);
     if (accountEl) accountEl.value = safeVal(obj.account) === '—' ? '' : safeVal(obj.account);
     if (postUrlEl) postUrlEl.value = safeVal(obj.postUrl) === '—' ? '' : safeVal(obj.postUrl);
+    renderOperationalAlert({ status, qcChangeNotes, blocker, lastErrorAt, sla });
     loadEditorOptions(editor).then(() => renderWhatsappHandoffs(obj));
     updateManagerActionState(obj);
     renderMissionProgress(obj);
@@ -526,6 +539,29 @@
     const qcChangesButton = document.getElementById('qc-changes-btn');
     if (qcApproveButton) qcApproveButton.textContent = ['Approved', 'Uploaded'].includes(status) ? 'QC Approved ✓' : 'Approve QC ✓';
     if (qcChangesButton) qcChangesButton.textContent = status === 'Changes' ? 'Changes Requested ✓' : 'Request Changes';
+  }
+
+  function renderOperationalAlert({ status, qcChangeNotes, blocker, lastErrorAt, sla }) {
+    const panel = document.getElementById('drawer-operational-alert');
+    const title = document.getElementById('drawer-operational-alert-title');
+    const badge = document.getElementById('drawer-operational-alert-badge');
+    const text = document.getElementById('drawer-operational-alert-text');
+    const help = document.getElementById('drawer-operational-alert-help');
+    if (!panel) return;
+
+    const isChanges = /change|revision|rework/i.test(`${status}`);
+    const isOverdue = /overdue|breach/i.test(`${sla}`);
+    const instruction = qcChangeNotes !== '—' ? qcChangeNotes : blocker !== '—' ? blocker : '';
+    const hasIssue = isChanges || Boolean(instruction) || lastErrorAt !== '—' || isOverdue;
+    panel.style.display = hasIssue ? 'block' : 'none';
+    if (!hasIssue) return;
+
+    if (title) title.textContent = isChanges ? 'Changes required' : blocker !== '—' ? 'Workflow blocked' : isOverdue ? 'SLA overdue' : 'Operational issue';
+    if (badge) badge.textContent = isChanges ? 'Changes' : blocker !== '—' ? 'Blocked' : isOverdue ? 'Overdue' : 'Error';
+    if (text) text.textContent = instruction || (isOverdue ? `This video is ${sla}. Open the row and move the pending step forward.` : `The last workflow error was recorded at ${lastErrorAt}.`);
+    if (help) help.textContent = isChanges
+      ? 'Editor: follow this instruction, upload a new file in the FINAL folder, then manager runs Detect FINAL for a fresh QC revision.'
+      : 'Resolve the message above in the Sheet or this drawer, then press Refresh to confirm the workflow recovered.';
   }
 
   function managerErrorMessage(data, fallback) {

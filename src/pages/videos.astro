@@ -49,6 +49,18 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
     </div>
   </div>
 
+  <section id="videos-attention-panel" class="card attention-panel" style="display:none;" aria-labelledby="videos-attention-title">
+    <div class="attention-panel-head">
+      <div>
+        <span class="today-eyebrow">LIVE OPERATIONS</span>
+        <h2 id="videos-attention-title">Changes & problems</h2>
+        <p>Fresh Sheet changes are checked in the background. Open an item for the exact next step.</p>
+      </div>
+      <span id="videos-attention-count" class="chip chip-red">0 items</span>
+    </div>
+    <div id="videos-attention-list" class="attention-list"></div>
+  </section>
+
   <!-- Manager: Create video/script -->
   <div id="create-video-modal" class="modal-backdrop">
     <div class="modal-card" style="width: min(620px, calc(100vw - 2rem)); max-width: 620px;">
@@ -161,7 +173,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
     let currentPage = 1;
     const PAGE_SIZE = 15;
 
-    async function loadVideosList() {
+    async function loadVideosList(forceRefresh = false) {
       const loading = document.getElementById('videos-loading');
       const tableContainer = document.getElementById('videos-table-container');
       const errorBox = document.getElementById('videos-error');
@@ -177,7 +189,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'videos' })
+          body: JSON.stringify({ action: 'videos', refresh: Boolean(forceRefresh), limit: 500 })
         });
 
         const data = await res.json().catch(() => ({}));
@@ -266,11 +278,52 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         const hasRawFolder = Boolean(item.rawFolderUrl || item.rawFolder);
         const hasFinalFolder = Boolean(item.finalFolderUrl || item.finalFolder);
 
-        return { id, title: title !== '—' ? title : 'Script not added', fullTitle: fullText, teacher, editor, status, sla, rawAvailable: hasRaw, finalAvailable: hasFinal, rawFolderAvailable: hasRawFolder, finalFolderAvailable: hasFinalFolder, rawRecord: item };
+        const qcStatus = safeVal(item.qcStatus || item.qc_status);
+        const qcNotes = safeVal(item.qcChangeNotes || item.qcNotes || item['QC Change Notes']);
+        const blocker = safeVal(item.blocker || item.Blocker);
+        const lastErrorAt = safeVal(item.lastErrorAt || item['Last Error At']);
+
+        return { id, title: title !== '—' ? title : 'Script not added', fullTitle: fullText, teacher, editor, status, sla, qcStatus, qcNotes, blocker, lastErrorAt, rawAvailable: hasRaw, finalAvailable: hasFinal, rawFolderAvailable: hasRawFolder, finalFolderAvailable: hasFinalFolder, rawRecord: item };
       });
 
       populateFilterOptions();
       applyFilters();
+      renderOperationalAlerts();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+    }
+
+    function issueForVideo(video) {
+      const isChanges = /change|revision|rework/i.test(`${video.status} ${video.qcStatus}`);
+      const isOverdue = /overdue|breach/i.test(video.sla);
+      const note = video.qcNotes !== '—' ? video.qcNotes : '';
+      const blocker = video.blocker !== '—' ? video.blocker : '';
+      const error = video.lastErrorAt !== '—' ? `Last error: ${video.lastErrorAt}` : '';
+      if (isChanges) return { priority: 1, label: 'Changes', message: note || blocker || 'QC changes were requested. Open details for instructions.' };
+      if (blocker) return { priority: 2, label: 'Blocked', message: blocker };
+      if (error) return { priority: 3, label: 'Error', message: error };
+      if (isOverdue) return { priority: 4, label: 'Overdue', message: `SLA state: ${video.sla}` };
+      return null;
+    }
+
+    function renderOperationalAlerts() {
+      const panel = document.getElementById('videos-attention-panel');
+      const list = document.getElementById('videos-attention-list');
+      const count = document.getElementById('videos-attention-count');
+      if (!panel || !list) return;
+      const issues = allVideos.map(video => ({ video, issue: issueForVideo(video) })).filter(item => item.issue).sort((a, b) => a.issue.priority - b.issue.priority);
+      panel.style.display = issues.length ? 'block' : 'none';
+      if (count) count.textContent = `${issues.length} item${issues.length === 1 ? '' : 's'}`;
+      list.innerHTML = issues.slice(0, 12).map(({ video, issue }) => `
+        <button class="attention-row" type="button" data-video-id="${escapeHtml(video.id)}">
+          <span class="attention-row-id">${escapeHtml(video.id)}</span>
+          <span class="attention-row-copy"><strong>${escapeHtml(video.title)}</strong><small>${escapeHtml(issue.message)}</small></span>
+          <span class="chip chip-red">${escapeHtml(issue.label)}</span>
+        </button>
+      `).join('');
+      list.querySelectorAll('[data-video-id]').forEach(row => row.addEventListener('click', () => window.openVideoDrawer?.(row.dataset.videoId)));
     }
 
     function populateFilterOptions() {
@@ -421,7 +474,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
         tr.innerHTML = `
           <td><span class="font-mono" style="font-size: 0.75rem; font-weight: 700; color: var(--brand-700);">${item.id}</span></td>
-          <td><div class="cell-title" title="${item.fullTitle}">${item.title}</div></td>
+          <td><div class="cell-title" title="${escapeHtml(item.fullTitle)}">${escapeHtml(item.title)}</div>${issueForVideo(item) ? `<div class="cell-issue">${escapeHtml(issueForVideo(item).message)}</div>` : ''}</td>
           <td><div style="color: var(--text-muted);">${item.teacher}</div></td>
           <td><div style="color: var(--text-muted); font-weight: 500;">${item.editor !== '—' ? item.editor : '<span style="color: var(--brand-700);">Unassigned</span>'}</div></td>
           <td><span class="chip ${chipClass}">${item.status}</span></td>
@@ -444,7 +497,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
     }
 
     // Set refresh hook
-    window.__refreshOperationsData = loadVideosList;
+    window.__refreshOperationsData = () => loadVideosList(true);
 
     // Initial load
     document.addEventListener('DOMContentLoaded', () => {
@@ -453,6 +506,10 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       document.getElementById('video-search-input')?.addEventListener('input', handleSearchChange);
       document.getElementById('status-filter-select')?.addEventListener('change', handleFilterChange);
       document.getElementById('editor-filter-select')?.addEventListener('change', handleFilterChange);
+      window.addEventListener('infinity:videos-updated', event => {
+        const rows = event.detail?.rows;
+        if (Array.isArray(rows)) normalizeAndStoreVideos(rows);
+      });
     });
 
     function openCreateVideoModal() {
