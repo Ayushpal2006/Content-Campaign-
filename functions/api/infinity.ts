@@ -1,9 +1,19 @@
 import { verifySessionCookie } from '../utils/auth';
+import {
+  createReadCacheKey,
+  getDefaultCache,
+  isReadAction,
+  purgeRelatedReadCaches,
+  readCacheSeconds,
+  responseForBrowser,
+  responseForEdgeCache,
+} from '../utils/infinity-cache';
 
 interface Env {
   APPS_SCRIPT_API_URL?: string;
   INFINITY_API_TOKEN?: string;
   SESSION_SECRET?: string;
+  INFINITY_READ_CACHE_SECONDS?: string;
 }
 
 const ALLOWED_ACTIONS = new Set([
@@ -24,7 +34,13 @@ const ALLOWED_ACTIONS = new Set([
 ]);
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
-  const sessionSecret = context.env.SESSION_SECRET || 'infinity-default-session-secret-change-me';
+  const sessionSecret = context.env.SESSION_SECRET?.trim();
+  if (!sessionSecret) {
+    return new Response(
+      JSON.stringify({ ok: false, error: 'SESSION_SECRET is not configured on server.' }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 
   // 1. Session verification
   const isAuthorized = await verifySessionCookie(context.request, sessionSecret);
@@ -80,6 +96,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     );
   }
 
+  const cacheTtl = readCacheSeconds(context.env.INFINITY_READ_CACHE_SECONDS);
+  const canUseReadCache = isReadAction(action) && body.refresh !== true && cacheTtl > 0;
+  const cacheKey = canUseReadCache
+    ? await createReadCacheKey(context.request, { ...body, action })
+    : null;
+
+  if (cacheKey) {
+    const cached = await getDefaultCache().match(cacheKey);
+    if (cached) return responseForBrowser(cached, 'HIT');
+  }
+
   // 4. Forward to Google Apps Script Web App
   try {
     const upstreamPayload = {
@@ -124,7 +151,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    return new Response(JSON.stringify(data), {
+    const upstreamResult = new Response(JSON.stringify(data), {
       status: upstreamResponse.status >= 200 && upstreamResponse.status < 300 ? 200 : upstreamResponse.status,
       headers: {
         'Content-Type': 'application/json',
@@ -132,6 +159,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         'Server-Timing': `apps-script;dur=${Date.now() - upstreamStartedAt}`,
       },
     });
+
+    const upstreamSucceeded =
+      upstreamResult.status >= 200 &&
+      upstreamResult.status < 300 &&
+      !(data && typeof data === 'object' && 'ok' in data && data.ok === false);
+    if (cacheKey && upstreamSucceeded) {
+      const edgeResponse = responseForEdgeCache(upstreamResult.clone(), cacheTtl);
+      context.waitUntil(getDefaultCache().put(cacheKey, edgeResponse));
+    } else if (!isReadAction(action) && upstreamSucceeded) {
+      context.waitUntil(purgeRelatedReadCaches(context.request, { ...body, action }));
+    }
+
+    return responseForBrowser(upstreamResult, 'MISS');
   } catch (err: unknown) {
     const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message?.includes('aborted'));
     return new Response(
