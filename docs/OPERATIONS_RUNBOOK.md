@@ -52,6 +52,16 @@ The row must have a Video ID, Publish Date, Script, and checked `Script Ready?` 
 6. Manager runs **Detect FINAL**. A new revision is recorded and the video returns to `QC Pending`.
 7. Manager reviews the new revision and approves QC.
 
+## Daily MIS settings and test delivery
+
+1. Open **Daily MIS** in the app.
+2. Edit **To**, **CC**, the 0–23 send-hour window, and the optional management note.
+3. Press **Save Settings**. Values are stored in the hidden Sheet `CONFIG` tab under `MIS_RECIPIENT_EMAILS`, `MIS_CC_EMAILS`, `MIS_SEND_HOUR`, and `MIS_CUSTOM_NOTE`.
+4. Press **Save & Send Test**. The subject starts with `[TEST]`; this does not enable the schedule.
+5. After reviewing the received email, press **Enable / Update Daily Schedule** once. Repeating it safely replaces the existing Daily MIS trigger instead of creating duplicates.
+
+Apps Script time triggers run within the selected hourly window, not at an exact minute. Anyone who knows the current shared app access code can reach these controls; introduce role-based authentication before widening app access beyond the manager group.
+
 The visible app performs a forced fresh Sheet check about every 60 seconds. Manual **Refresh** bypasses the read cache immediately. Browser/PWA notifications must be enabled once per device.
 
 ## Problems shown in the UI
