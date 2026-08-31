@@ -254,6 +254,10 @@ function setupDailyMisTrigger() {
   return { ok: true, handler: INFINITY_MIS.HANDLER, hour, timezone: Session.getScriptTimeZone() };
 }
 
+function sendDailyCampaignMisTest() {
+  return sendDailyCampaignMis({ test: true });
+}
+
 function previewDailyCampaignMisHtml() {
   const ss = misSpreadsheet_();
   const config = misConfig_(ss);
@@ -269,7 +273,7 @@ function apiSaveMisSettings_(ss, body) {
 }
 
 function apiSendMisTest_() {
-  return sendDailyCampaignMis({ test: true });
+  return sendDailyCampaignMisTest();
 }
 
 function apiSetupMisTrigger_() {
