@@ -62,6 +62,8 @@ The row must have a Video ID, Publish Date, Script, and checked `Script Ready?` 
 
 Apps Script time triggers run within the selected hourly window, not at an exact minute. Anyone who knows the current shared app access code can reach these controls; introduce role-based authentication before widening app access beyond the manager group.
 
+If the first UI test reports an Apps Script authorization error, run `sendDailyCampaignMisTest()` once from the Apps Script editor, approve the Mail permission, and retry the UI button. That helper sends a real test email, so run it only when the saved recipients are correct.
+
 The visible app performs a forced fresh Sheet check about every 60 seconds. Manual **Refresh** bypasses the read cache immediately. Browser/PWA notifications must be enabled once per device.
 
 ## Problems shown in the UI
