@@ -32,9 +32,23 @@ function misConfig_(ss) {
 }
 
 function misDateKey_(value, tz) {
-  if (!value) return '';
-  const date = value instanceof Date ? value : new Date(value);
-  return isNaN(date.getTime()) ? '' : Utilities.formatDate(date, tz, 'yyyy-MM-dd');
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, tz, 'yyyy-MM-dd');
+  }
+  const text = String(value || '').trim();
+  if (!text) return '';
+  let match = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(text);
+  if (match) return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
+  match = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/.exec(text);
+  if (match) return `${match[3]}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}`;
+  match = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(text);
+  if (match) {
+    const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
+    const month = months[match[2].toLowerCase()];
+    if (month) return `${match[3]}-${String(month).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}`;
+  }
+  const parsed = new Date(text);
+  return isNaN(parsed.getTime()) ? '' : Utilities.formatDate(parsed, tz, 'yyyy-MM-dd');
 }
 
 function buildDailyCampaignMisData_(ss) {
