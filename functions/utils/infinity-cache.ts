@@ -7,6 +7,7 @@ const READ_ACTIONS = new Set([
   'video',
   'editor_load',
   'mis_config',
+  'job_status',
 ]);
 
 const CACHE_KEY_IGNORED_FIELDS = new Set(['requestId', 'refresh', 'token']);

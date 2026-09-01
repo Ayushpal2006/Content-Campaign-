@@ -35,6 +35,8 @@ const ALLOWED_ACTIONS = new Set([
   'save_mis_config',
   'send_mis_test',
   'setup_mis_trigger',
+  'queue_action',
+  'job_status',
 ]);
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {

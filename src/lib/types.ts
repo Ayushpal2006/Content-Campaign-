@@ -14,7 +14,9 @@ export type ActionType =
   | 'detect_final'
   | 'qc_approve'
   | 'qc_changes'
-  | 'mark_uploaded';
+  | 'mark_uploaded'
+  | 'queue_action'
+  | 'job_status';
 
 export interface ApiResponse<T = unknown> {
   ok?: boolean;
