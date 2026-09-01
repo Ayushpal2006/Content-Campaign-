@@ -654,6 +654,56 @@
     }
   }
 
+  async function runQueuedManagerAction(queuedAction, payload, successMessage, options = {}) {
+    if (!activeSelectedVideoId || isManagerActionRunning) return null;
+    isManagerActionRunning = true;
+    const actionButton = options.buttonId ? document.getElementById(options.buttonId) : null;
+    const originalButtonText = actionButton?.textContent || '';
+    if (actionButton) { actionButton.disabled = true; actionButton.setAttribute('aria-busy', 'true'); actionButton.textContent = 'Queued…'; }
+    startManagerActionProgress('Action saved in reliable queue…', 'The backend retries automatically. You may safely close this screen.');
+    const box = document.getElementById('manager-action-message');
+    try {
+      const requestId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${queuedAction}`;
+      const queued = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'queue_action', queuedAction, videoId:activeSelectedVideoId, requestId, payload }) });
+      const queuedData = await queued.json().catch(() => ({}));
+      if (!queued.ok || queuedData.ok === false || !queuedData.jobId) throw new Error(managerErrorMessage(queuedData, 'Could not save action in queue.'));
+      if (box) { box.style.display='block'; box.style.background='#eff6ff'; box.style.color='#1d4ed8'; box.textContent='Queued safely. Backend processing started…'; }
+      const jobId = queuedData.jobId;
+      const deadline = Date.now() + 90000;
+      while (Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        const statusRes = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'job_status', jobId, refresh:true }) });
+        const job = await statusRes.json().catch(() => ({}));
+        if (!statusRes.ok || job.ok === false) continue;
+        const attempt = Number(job.attemptCount || 0), max = Number(job.maxAttempts || 5);
+        if (actionButton) actionButton.textContent = job.status === 'Processing' ? `Processing ${attempt}/${max}…` : `Queued ${attempt}/${max}…`;
+        if (box) box.textContent = `${job.status} · attempt ${attempt}/${max}${job.error ? ` · ${job.error}` : ''}`;
+        if (job.status === 'Completed') {
+          videoDetailCache.delete(activeSelectedVideoId);
+          if (actionButton) actionButton.textContent = options.successLabel || 'Completed ✓';
+          if (box) { box.style.background='#f0fdf4'; box.style.color='#15803d'; box.textContent=successMessage; }
+          finishManagerActionProgress(successMessage, true); showToast(successMessage, 'success');
+          await openVideoDrawer(activeSelectedVideoId);
+          if (typeof window.__refreshOperationsData === 'function') window.__refreshOperationsData();
+          return job;
+        }
+        if (job.status === 'Failed') throw new Error(job.error || 'Backend could not complete this action after 5 attempts.');
+      }
+      const pendingMessage = 'Action is saved in the queue. Backend will keep retrying; refresh later to see the final state.';
+      if (box) box.textContent = pendingMessage;
+      finishManagerActionProgress(pendingMessage, true); showToast('Action queued safely', 'success');
+      return queuedData;
+    } catch (error) {
+      if (actionButton) { actionButton.disabled = false; actionButton.textContent = originalButtonText; }
+      if (box) { box.style.display='block'; box.style.background='#fff1f2'; box.style.color='#be123c'; box.textContent=error.message || 'Queue action failed'; }
+      finishManagerActionProgress(error.message || 'Queue action failed', false); showToast(error.message || 'Queue action failed', 'error');
+      return null;
+    } finally {
+      if (actionButton) actionButton.removeAttribute('aria-busy');
+      isManagerActionRunning = false;
+    }
+  }
+
   function saveManagerScript() {
     const script = document.getElementById('drawer-script-input')?.value.trim() || '';
     const editorBrief = document.getElementById('drawer-editor-brief-input')?.value.trim() || '';
@@ -669,7 +719,7 @@
     const videoType = document.getElementById('drawer-video-type')?.value || 'Original Recording';
     if (videoType === 'Original Recording' && !script) { showToast('Recording Script is required', 'error'); return; }
     if (!editorBrief) { showToast('Editor Brief is required', 'error'); return; }
-    return runManagerAction('approve_script', { script: script || editorBrief, recordingScript: script, editorBrief, videoType }, 'Content approved and Drive folders prepared.', {
+    return runQueuedManagerAction('approve_script', { script: script || editorBrief, recordingScript: script, editorBrief, videoType }, 'Content approved and Drive folders prepared.', {
       buttonId: 'approve-script-btn',
       pendingLabel: 'Preparing folders…',
       successLabel: 'Content Approved ✓',
@@ -690,7 +740,7 @@
 
   function submitManagerQcApprove() {
     const notes = document.getElementById('drawer-qc-notes')?.value.trim() || '';
-    return runManagerAction('qc_approve', { notes }, 'QC approved. Video is ready for publishing.', {
+    return runQueuedManagerAction('qc_approve', { notes }, 'QC approved. Video is ready for publishing.', {
       buttonId: 'qc-approve-btn',
       pendingLabel: 'Approving QC…',
       successLabel: 'QC Approved ✓',
