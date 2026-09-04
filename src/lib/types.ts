@@ -16,7 +16,9 @@ export type ActionType =
   | 'qc_changes'
   | 'mark_uploaded'
   | 'queue_action'
-  | 'job_status';
+  | 'job_status'
+  | 'web_jobs'
+  | 'retry_job';
 
 export interface ApiResponse<T = unknown> {
   ok?: boolean;

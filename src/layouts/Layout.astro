@@ -3,7 +3,7 @@ import '../styles/global.css';
 
 interface Props {
   title?: string;
-  activeTab?: 'dashboard' | 'videos' | 'editors' | 'mis' | 'login';
+  activeTab?: 'dashboard' | 'videos' | 'editors' | 'jobs' | 'mis' | 'login';
 }
 
 const { title = 'Infinity Operations', activeTab = 'dashboard' } = Astro.props;
@@ -83,6 +83,11 @@ const isLoginPage = activeTab === 'login';
               </svg>
               <span>Daily MIS</span>
             </a>
+
+            <a href="/jobs" class={`nav-link ${activeTab === 'jobs' ? 'active' : ''}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg>
+              <span>Action Jobs</span>
+            </a>
           </nav>
 
           <div class="sidebar-footer">
@@ -158,6 +163,9 @@ const isLoginPage = activeTab === 'login';
             </a>
             <a href="/mis" class={activeTab === 'mis' ? 'active' : ''}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/></svg>MIS
+            </a>
+            <a href="/jobs" class={activeTab === 'jobs' ? 'active' : ''}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg>Jobs
             </a>
           </nav>
         </div>

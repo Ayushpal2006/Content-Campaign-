@@ -665,16 +665,18 @@
     try {
       const requestId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${queuedAction}`;
       const queued = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'queue_action', queuedAction, videoId:activeSelectedVideoId, requestId, payload }) });
-      const queuedData = await queued.json().catch(() => ({}));
-      if (!queued.ok || queuedData.ok === false || !queuedData.jobId) throw new Error(managerErrorMessage(queuedData, 'Could not save action in queue.'));
+      const queuedEnvelope = await queued.json().catch(() => ({}));
+      const queuedData = queuedEnvelope.result || queuedEnvelope.data || queuedEnvelope;
+      if (!queued.ok || queuedEnvelope.ok === false || queuedData.ok === false || !queuedData.jobId) throw new Error(managerErrorMessage(queuedEnvelope, 'Could not save action in queue.'));
       if (box) { box.style.display='block'; box.style.background='#eff6ff'; box.style.color='#1d4ed8'; box.textContent='Queued safely. Backend processing started…'; }
       const jobId = queuedData.jobId;
       const deadline = Date.now() + 90000;
       while (Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 3000));
         const statusRes = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'job_status', jobId, refresh:true }) });
-        const job = await statusRes.json().catch(() => ({}));
-        if (!statusRes.ok || job.ok === false) continue;
+        const statusEnvelope = await statusRes.json().catch(() => ({}));
+        const job = statusEnvelope.result || statusEnvelope.data || statusEnvelope;
+        if (!statusRes.ok || statusEnvelope.ok === false || job.ok === false) continue;
         const attempt = Number(job.attemptCount || 0), max = Number(job.maxAttempts || 5);
         if (actionButton) actionButton.textContent = job.status === 'Processing' ? `Processing ${attempt}/${max}…` : `Queued ${attempt}/${max}…`;
         if (box) box.textContent = `${job.status} · attempt ${attempt}/${max}${job.error ? ` · ${job.error}` : ''}`;
