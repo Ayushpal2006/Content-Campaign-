@@ -37,6 +37,8 @@ const ALLOWED_ACTIONS = new Set([
   'setup_mis_trigger',
   'queue_action',
   'job_status',
+  'web_jobs',
+  'retry_job',
 ]);
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {

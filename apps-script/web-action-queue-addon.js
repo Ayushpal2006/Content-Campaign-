@@ -14,6 +14,14 @@ function webJobSheet_(ss) {
   return sh;
 }
 
+function ensureInfinityWebJobWorker_() {
+  var handlers = ScriptApp.getProjectTriggers().map(function(trigger) { return trigger.getHandlerFunction(); });
+  if (handlers.indexOf('scanRawFast') >= 0) return { ready: true, handler: 'scanRawFast' };
+  if (handlers.indexOf('processInfinityWebJobs_') >= 0) return { ready: true, handler: 'processInfinityWebJobs_' };
+  ScriptApp.newTrigger('processInfinityWebJobs_').timeBased().everyMinutes(1).create();
+  return { ready: true, handler: 'processInfinityWebJobs_', created: true };
+}
+
 function apiQueueWebAction_(ss, body) {
   var queuedAction = String(body.queuedAction || '').trim();
   var requestId = String(body.requestId || '').trim();
@@ -24,17 +32,22 @@ function apiQueueWebAction_(ss, body) {
   lock.waitLock(10000);
   try {
     var sh = webJobSheet_(ss);
+    var worker = ensureInfinityWebJobWorker_();
     var last = sh.getLastRow();
     if (last > 1) {
       var ids = sh.getRange(2, 2, last - 1, 1).getDisplayValues();
       for (var i = 0; i < ids.length; i++) {
-        if (ids[i][0] === requestId) return webJobObject_(sh.getRange(i + 2, 1, 1, WEB_JOB_HEADERS_.length).getValues()[0]);
+        if (ids[i][0] === requestId) {
+          var existing = webJobObject_(sh.getRange(i + 2, 1, 1, WEB_JOB_HEADERS_.length).getValues()[0]);
+          existing.worker = worker;
+          return existing;
+        }
       }
     }
     var jobId = Utilities.getUuid();
     var now = new Date();
     sh.appendRow([jobId, requestId, videoId, queuedAction, JSON.stringify(body.payload || {}), 'Pending', 0, 5, now, '', '', now, '', '']);
-    return { ok: true, queued: true, jobId: jobId, requestId: requestId, status: 'Pending', attemptCount: 0, maxAttempts: 5, createdAt: now.toISOString() };
+    return { ok: true, queued: true, jobId: jobId, requestId: requestId, status: 'Pending', attemptCount: 0, maxAttempts: 5, createdAt: now.toISOString(), worker: worker };
   } finally { lock.releaseLock(); }
 }
 
@@ -47,6 +60,35 @@ function apiGetWebJobStatus_(ss, body) {
   var rows = sh.getRange(2, 1, last - 1, WEB_JOB_HEADERS_.length).getValues();
   for (var i = rows.length - 1; i >= 0; i--) if (String(rows[i][0]) === jobId) return webJobObject_(rows[i]);
   throw new Error('Job not found.');
+}
+
+function apiListWebJobs_(ss) {
+  var sh = webJobSheet_(ss);
+  var last = sh.getLastRow();
+  var jobs = last < 2 ? [] : sh.getRange(Math.max(2, last - 99), 1, Math.min(100, last - 1), WEB_JOB_HEADERS_.length).getValues().map(webJobObject_).reverse();
+  var counts = { Pending: 0, Processing: 0, Completed: 0, Failed: 0 };
+  jobs.forEach(function(job) { counts[job.status] = Number(counts[job.status] || 0) + 1; });
+  return { ok: true, jobs: jobs, counts: counts, worker: ensureInfinityWebJobWorker_(), refreshedAt: new Date().toISOString() };
+}
+
+function apiRetryWebJob_(ss, body) {
+  var jobId = String(body.jobId || '').trim();
+  if (!jobId) throw new Error('jobId is required.');
+  var lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    var sh = webJobSheet_(ss), last = sh.getLastRow();
+    if (last < 2) throw new Error('Job not found.');
+    var ids = sh.getRange(2, 1, last - 1, 1).getDisplayValues();
+    for (var i = ids.length - 1; i >= 0; i--) {
+      if (ids[i][0] !== jobId) continue;
+      var row = i + 2, status = String(sh.getRange(row, 6).getDisplayValue());
+      if (status === 'Completed') return webJobObject_(sh.getRange(row, 1, 1, WEB_JOB_HEADERS_.length).getValues()[0]);
+      sh.getRange(row, 6, 1, 8).setValues([['Pending', 0, 5, sh.getRange(row, 9).getValue(), '', '', new Date(), '']]);
+      ensureInfinityWebJobWorker_();
+      return webJobObject_(sh.getRange(row, 1, 1, WEB_JOB_HEADERS_.length).getValues()[0]);
+    }
+    throw new Error('Job not found.');
+  } finally { lock.releaseLock(); }
 }
 
 function webJobObject_(r) {
