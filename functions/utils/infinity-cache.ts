@@ -9,6 +9,7 @@ const READ_ACTIONS = new Set([
   'mis_config',
   'job_status',
   'web_jobs',
+  'snapshot',
 ]);
 
 const CACHE_KEY_IGNORED_FIELDS = new Set(['requestId', 'refresh', 'token']);

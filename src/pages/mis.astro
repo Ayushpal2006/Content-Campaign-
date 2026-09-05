@@ -80,15 +80,24 @@ import Layout from '../layouts/Layout.astro';
       const loading = document.getElementById('mis-loading');
       const content = document.getElementById('mis-content');
       const error = document.getElementById('mis-error');
+      const cached = window.infinitySnapshotCache?.get('dashboard');
+      if (cached) {
+        renderMis(cached.data);
+        loading.style.display = 'none'; content.style.display = 'flex';
+      }
       try {
-        const res = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'dashboard'}) });
+        const res = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'snapshot',resource:'dashboard'}) });
         const raw = await res.json().catch(() => ({}));
         if (!res.ok || raw.ok === false) throw new Error(raw.error || 'Could not load MIS data');
-        const data = raw.result || raw.data || raw;
+        const snapshot = window.infinitySnapshotCache?.unwrap(raw) || { data: raw };
+        const data = snapshot.data?.result || snapshot.data?.data || snapshot.data;
         renderMis(data);
+        window.infinitySnapshotCache?.set('dashboard', data, snapshot.generatedAt);
         loading.style.display = 'none'; content.style.display = 'flex';
       } catch (e) {
-        loading.style.display = 'none'; error.style.display = 'block'; error.textContent = e.message || 'Could not load MIS data';
+        loading.style.display = 'none';
+        if (!cached) { error.style.display = 'block'; error.textContent = e.message || 'Could not load MIS data'; }
+        else window.showToast?.('Fresh MIS data unavailable. Showing the last snapshot.', 'error');
       }
     }
 

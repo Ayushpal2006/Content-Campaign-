@@ -180,8 +180,16 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       const errorText = document.getElementById('videos-error-text');
       const lastUpdatedEl = document.getElementById('last-updated-text');
 
-      if (loading) loading.style.display = 'block';
-      if (tableContainer) tableContainer.style.display = 'none';
+      const cached = window.infinitySnapshotCache?.get('videos');
+      if (cached) {
+        applyVideosPayload(cached.data);
+        if (loading) loading.style.display = 'none';
+        if (tableContainer) tableContainer.style.display = 'block';
+        if (lastUpdatedEl) lastUpdatedEl.textContent = 'Showing saved snapshot · refreshing…';
+      } else {
+        if (loading) loading.style.display = 'block';
+        if (tableContainer) tableContainer.style.display = 'none';
+      }
       if (errorBox) errorBox.style.display = 'none';
 
       try {
@@ -189,7 +197,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'videos', refresh: Boolean(forceRefresh), limit: 500 })
+          body: JSON.stringify({ action: 'snapshot', resource: 'videos', refresh: Boolean(forceRefresh) })
         });
 
         const data = await res.json().catch(() => ({}));
@@ -198,24 +206,9 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           throw new Error(data.error || 'Failed to load videos list');
         }
 
-        const resObj = data.result || data.data || data;
-        let rawList = [];
-        if (Array.isArray(resObj)) {
-          rawList = resObj;
-        } else if (resObj && typeof resObj === 'object') {
-          if (Array.isArray(resObj.items)) rawList = resObj.items;
-          else if (Array.isArray(resObj.videos)) rawList = resObj.videos;
-          else if (Array.isArray(resObj.data)) rawList = resObj.data;
-        } else if (Array.isArray(data.items)) {
-          rawList = data.items;
-        } else if (Array.isArray(data.videos)) {
-          rawList = data.videos;
-        }
-
-        normalizeAndStoreVideos(rawList);
-        if (typeof window.__ingestInfinityVideos === 'function') {
-          window.__ingestInfinityVideos(rawList);
-        }
+        const snapshot = window.infinitySnapshotCache?.unwrap(data) || { data };
+        applyVideosPayload(snapshot.data);
+        window.infinitySnapshotCache?.set('videos', snapshot.data, snapshot.generatedAt);
 
         const requestedVideo = new URLSearchParams(window.location.search).get('video');
         if (requestedVideo && typeof window.openVideoDrawer === 'function') {
@@ -232,11 +225,30 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         if (tableContainer) tableContainer.style.display = 'block';
       } catch (err) {
         if (loading) loading.style.display = 'none';
-        if (errorBox) {
+        if (errorBox && !cached) {
           if (errorText) errorText.textContent = err.message || 'Failed to fetch videos from server.';
           errorBox.style.display = 'block';
         }
+        if (cached) window.showToast?.('Fresh videos unavailable. Showing the last snapshot.', 'error');
       }
+    }
+
+    function applyVideosPayload(payload) {
+        const resObj = payload?.result || payload?.data || payload;
+        let rawList = [];
+        if (Array.isArray(resObj)) {
+          rawList = resObj;
+        } else if (resObj && typeof resObj === 'object') {
+          if (Array.isArray(resObj.items)) rawList = resObj.items;
+          else if (Array.isArray(resObj.videos)) rawList = resObj.videos;
+          else if (Array.isArray(resObj.data)) rawList = resObj.data;
+        }
+
+        normalizeAndStoreVideos(rawList);
+        if (typeof window.__ingestInfinityVideos === 'function') {
+          window.__ingestInfinityVideos(rawList);
+        }
+
     }
 
     function safeVal(val) {
