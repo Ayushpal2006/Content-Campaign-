@@ -97,8 +97,16 @@ import Layout from '../layouts/Layout.astro';
       const errorText = document.getElementById('editors-error-text');
       const lastUpdatedEl = document.getElementById('last-updated-text');
 
-      if (loading) loading.style.display = 'block';
-      if (content) content.style.display = 'none';
+      const cached = window.infinitySnapshotCache?.get('editor_load');
+      if (cached) {
+        normalizeAndRenderEditors(cached.data);
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+        if (lastUpdatedEl) lastUpdatedEl.textContent = 'Showing saved snapshot · refreshing…';
+      } else {
+        if (loading) loading.style.display = 'block';
+        if (content) content.style.display = 'none';
+      }
       if (errorBox) errorBox.style.display = 'none';
 
       try {
@@ -106,7 +114,7 @@ import Layout from '../layouts/Layout.astro';
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'editor_load' })
+          body: JSON.stringify({ action: 'snapshot', resource: 'editor_load' })
         });
 
         const data = await res.json().catch(() => ({}));
@@ -115,8 +123,10 @@ import Layout from '../layouts/Layout.astro';
           throw new Error(data.error || 'Failed to fetch editor workload data');
         }
 
-        const list = data.result || data.editors || data.editorLoad || data.data || (Array.isArray(data) ? data : []);
+        const snapshot = window.infinitySnapshotCache?.unwrap(data) || { data };
+        const list = snapshot.data?.result || snapshot.data?.editors || snapshot.data?.editorLoad || snapshot.data?.data || (Array.isArray(snapshot.data) ? snapshot.data : []);
         normalizeAndRenderEditors(list);
+        window.infinitySnapshotCache?.set('editor_load', list, snapshot.generatedAt);
 
         if (lastUpdatedEl) {
           const d = new Date();
@@ -127,10 +137,11 @@ import Layout from '../layouts/Layout.astro';
         if (content) content.style.display = 'block';
       } catch (err) {
         if (loading) loading.style.display = 'none';
-        if (errorBox) {
+        if (errorBox && !cached) {
           if (errorText) errorText.textContent = err.message || 'Failed to load editor workloads.';
           errorBox.style.display = 'block';
         }
+        if (cached) window.showToast?.('Fresh editor data unavailable. Showing the last snapshot.', 'error');
       }
     }
 

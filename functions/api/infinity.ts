@@ -39,6 +39,7 @@ const ALLOWED_ACTIONS = new Set([
   'job_status',
   'web_jobs',
   'retry_job',
+  'snapshot',
 ]);
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {

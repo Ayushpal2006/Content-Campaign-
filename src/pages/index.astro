@@ -137,8 +137,16 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       const errorText = document.getElementById('dashboard-error-text');
       const lastUpdatedEl = document.getElementById('last-updated-text');
 
-      if (skeletons) skeletons.style.display = 'block';
-      if (content) content.style.display = 'none';
+      const cached = window.infinitySnapshotCache?.get('bootstrap');
+      if (cached) {
+        renderDashboard(cached.data);
+        if (skeletons) skeletons.style.display = 'none';
+        if (content) content.style.display = 'block';
+        if (lastUpdatedEl) lastUpdatedEl.textContent = 'Showing saved snapshot · refreshing…';
+      } else {
+        if (skeletons) skeletons.style.display = 'block';
+        if (content) content.style.display = 'none';
+      }
       if (errorBox) errorBox.style.display = 'none';
 
       try {
@@ -146,7 +154,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'bootstrap', refresh: Boolean(forceRefresh) })
+          body: JSON.stringify({ action: 'snapshot', resource: 'bootstrap', refresh: Boolean(forceRefresh) })
         });
 
         const data = await res.json().catch(() => ({}));
@@ -155,7 +163,9 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           throw new Error(data.error || 'Failed to fetch dashboard data');
         }
 
-        renderDashboard(data);
+        const snapshot = window.infinitySnapshotCache?.unwrap(data) || { data };
+        renderDashboard(snapshot.data);
+        window.infinitySnapshotCache?.set('bootstrap', snapshot.data, snapshot.generatedAt);
 
         if (lastUpdatedEl) {
           const d = new Date();
@@ -166,10 +176,11 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         if (content) content.style.display = 'block';
       } catch (err) {
         if (skeletons) skeletons.style.display = 'none';
-        if (errorBox) {
+        if (errorBox && !cached) {
           if (errorText) errorText.textContent = err.message || 'Failed to communicate with operations backend.';
           errorBox.style.display = 'block';
         }
+        if (cached) window.showToast?.('Fresh data unavailable. Showing the last snapshot.', 'error');
       }
     }
 

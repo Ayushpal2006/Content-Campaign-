@@ -18,7 +18,8 @@ export type ActionType =
   | 'queue_action'
   | 'job_status'
   | 'web_jobs'
-  | 'retry_job';
+  | 'retry_job'
+  | 'snapshot';
 
 export interface ApiResponse<T = unknown> {
   ok?: boolean;
