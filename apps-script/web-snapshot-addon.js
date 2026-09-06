@@ -23,7 +23,11 @@ function ensureInfinitySnapshotWorker_() {
 
 function webSnapshotChunks_(resource, value, generatedAt) {
   var json = JSON.stringify(value);
-  var compressed = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(json, 'application/json')).getBytes());
+  // Apps Script's gzip operation requires a source Blob with both a MIME type
+  // and a filename. Supplying only data + MIME can resolve to an unnamed Blob
+  // in some runtimes and fail with "Blob object must have non-null content type".
+  var sourceBlob = Utilities.newBlob(json, 'application/json', resource + '.json');
+  var compressed = Utilities.base64Encode(Utilities.gzip(sourceBlob, resource + '.json.gz').getBytes());
   var total = Math.max(1, Math.ceil(compressed.length / WEB_SNAPSHOT_CHUNK_));
   var rows = [];
   for (var i = 0; i < total; i++) rows.push([resource, i + 1, total, generatedAt, compressed.slice(i * WEB_SNAPSHOT_CHUNK_, (i + 1) * WEB_SNAPSHOT_CHUNK_)]);
