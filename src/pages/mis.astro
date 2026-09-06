@@ -88,7 +88,7 @@ import Layout from '../layouts/Layout.astro';
       try {
         const res = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'snapshot',resource:'dashboard'}) });
         const raw = await res.json().catch(() => ({}));
-        if (!res.ok || raw.ok === false) throw new Error(raw.error || 'Could not load MIS data');
+        if (!res.ok || raw.ok === false) throw new Error(apiError(raw, 'Could not load MIS data'));
         const snapshot = window.infinitySnapshotCache?.unwrap(raw) || { data: raw };
         const data = snapshot.data?.result || snapshot.data?.data || snapshot.data;
         renderMis(data);

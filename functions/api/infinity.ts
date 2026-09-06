@@ -128,7 +128,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const timeoutId = setTimeout(() => controller.abort(), 25000);
 
     const upstreamStartedAt = Date.now();
-    const upstreamResponse = await fetch(apiUrl, {
+    let upstreamResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -139,9 +139,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
-
-    const responseText = await upstreamResponse.text();
+    let responseText = await upstreamResponse.text();
     let data: unknown;
 
     try {
@@ -158,6 +156,66 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           headers: { 'Content-Type': 'application/json' },
         }
       );
+    }
+
+    // Compatibility fallback: a newer frontend may reach an older or
+    // temporarily broken Apps Script snapshot deployment. Keep the app usable
+    // by retrying the equivalent uncached read action. Snapshot remains the
+    // preferred fast path whenever it succeeds.
+    const snapshotResource =
+      action === 'snapshot' && typeof body.resource === 'string'
+        ? body.resource.trim().toLowerCase()
+        : '';
+    const snapshotFailed =
+      action === 'snapshot' &&
+      data &&
+      typeof data === 'object' &&
+      'ok' in data &&
+      data.ok === false;
+
+    if (
+      snapshotFailed &&
+      ['bootstrap', 'dashboard', 'videos', 'editor_load'].includes(snapshotResource)
+    ) {
+      upstreamResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          ...body,
+          action: snapshotResource,
+          token: apiToken,
+        }),
+        redirect: 'follow',
+        signal: controller.signal,
+      });
+      responseText = await upstreamResponse.text();
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = {
+          ok: false,
+          error: 'Snapshot and compatibility API both returned invalid responses.',
+        };
+      }
+    }
+
+    clearTimeout(timeoutId);
+
+    // Apps Script can return structured error objects. Normalize them so the
+    // browser never renders an unhelpful "[object Object]" message.
+    if (
+      data &&
+      typeof data === 'object' &&
+      'error' in data &&
+      data.error &&
+      typeof data.error === 'object' &&
+      'message' in data.error &&
+      typeof data.error.message === 'string'
+    ) {
+      data = { ...data, error: data.error.message };
     }
 
     const upstreamResult = new Response(JSON.stringify(data), {

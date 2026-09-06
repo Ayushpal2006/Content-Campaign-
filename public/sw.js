@@ -1,4 +1,4 @@
-const STATIC_CACHE = 'infinity-static-v1';
+const STATIC_CACHE = 'infinity-static-v2';
 const STATIC_ASSETS = ['/manifest.webmanifest', '/favicon.svg', '/icons/infinity-192.png', '/icons/infinity-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -19,7 +19,16 @@ self.addEventListener('fetch', (event) => {
   if (!['style', 'script', 'font', 'image', 'manifest'].includes(request.destination)) return;
   event.respondWith(caches.match(request).then((cached) => {
     const fresh = fetch(request).then((response) => {
-      if (response.ok) caches.open(STATIC_CACHE).then((cache) => cache.put(request, response.clone()));
+      // Some browsers/extensions hand back an already-consumed response. Static
+      // caching is optional, so never let clone/cache failures break the page.
+      if (response.ok && !response.bodyUsed) {
+        try {
+          const cacheCopy = response.clone();
+          caches.open(STATIC_CACHE)
+            .then((cache) => cache.put(request, cacheCopy))
+            .catch(() => {});
+        } catch (_) {}
+      }
       return response;
     }).catch(() => cached);
     return cached || fresh;
