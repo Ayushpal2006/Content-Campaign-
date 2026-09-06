@@ -26,7 +26,7 @@ export interface ApiResponse<T = unknown> {
   status?: string;
   data?: T;
   result?: T;
-  error?: string;
+  error?: string | { code?: string; message?: string; details?: unknown };
   message?: string;
   [key: string]: unknown;
 }

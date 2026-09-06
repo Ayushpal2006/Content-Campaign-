@@ -9,6 +9,15 @@ export class ApiError extends Error {
   }
 }
 
+function errorMessage(error: unknown, fallback: string): string {
+  if (typeof error === 'string' && error.trim()) return error;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return fallback;
+}
+
 function isLoginPath(pathname: string): boolean {
   if (!pathname) return false;
   const clean = pathname.toLowerCase().replace(/\/+$/, '').split('?')[0] || '/';
@@ -122,7 +131,7 @@ export async function fetchInfinityAction<T = unknown>(
     const data = (await res.json().catch(() => ({}))) as ApiResponse<T>;
 
     if (!res.ok) {
-      throw new ApiError(data.error || `Server returned error (${res.status})`, res.status);
+      throw new ApiError(errorMessage(data.error, `Server returned error (${res.status})`), res.status);
     }
 
     return data;

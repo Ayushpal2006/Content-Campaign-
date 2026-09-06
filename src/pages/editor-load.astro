@@ -90,6 +90,13 @@ import Layout from '../layouts/Layout.astro';
   <script is:inline>
     let rawEditorsList = [];
 
+    function readableApiError(raw, fallback) {
+      if (typeof raw?.error === 'string' && raw.error.trim()) return raw.error;
+      if (typeof raw?.error?.message === 'string' && raw.error.message.trim()) return raw.error.message;
+      if (typeof raw?.message === 'string' && raw.message.trim()) return raw.message;
+      return fallback;
+    }
+
     async function loadEditorData() {
       const loading = document.getElementById('editors-loading');
       const content = document.getElementById('editors-content');
@@ -120,7 +127,7 @@ import Layout from '../layouts/Layout.astro';
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok || data.ok === false) {
-          throw new Error(data.error || 'Failed to fetch editor workload data');
+          throw new Error(readableApiError(data, 'Failed to fetch editor workload data'));
         }
 
         const snapshot = window.infinitySnapshotCache?.unwrap(data) || { data };
