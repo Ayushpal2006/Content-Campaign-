@@ -130,6 +130,13 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
   <VideoDetailDrawer />
 
   <script is:inline>
+    function readableApiError(raw, fallback) {
+      if (typeof raw?.error === 'string' && raw.error.trim()) return raw.error;
+      if (typeof raw?.error?.message === 'string' && raw.error.message.trim()) return raw.error.message;
+      if (typeof raw?.message === 'string' && raw.message.trim()) return raw.message;
+      return fallback;
+    }
+
     async function loadDashboardData(forceRefresh = false) {
       const skeletons = document.getElementById('dashboard-skeletons');
       const content = document.getElementById('dashboard-content');
@@ -160,7 +167,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok || data.ok === false) {
-          throw new Error(data.error || 'Failed to fetch dashboard data');
+          throw new Error(readableApiError(data, 'Failed to fetch dashboard data'));
         }
 
         const snapshot = window.infinitySnapshotCache?.unwrap(data) || { data };

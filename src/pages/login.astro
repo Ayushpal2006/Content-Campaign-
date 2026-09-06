@@ -170,7 +170,10 @@ import Layout from '../layouts/Layout.astro';
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok || !data.ok) {
-          throw new Error(data.error || 'Invalid access code');
+          const message = typeof data.error === 'string'
+            ? data.error
+            : data?.error?.message || 'Invalid access code';
+          throw new Error(message);
         }
 
         // Authenticated successfully -> navigate once to target

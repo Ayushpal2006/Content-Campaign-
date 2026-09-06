@@ -168,6 +168,13 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
   <VideoDetailDrawer />
 
   <script is:inline>
+    function readableApiError(raw, fallback) {
+      if (typeof raw?.error === 'string' && raw.error.trim()) return raw.error;
+      if (typeof raw?.error?.message === 'string' && raw.error.message.trim()) return raw.error.message;
+      if (typeof raw?.message === 'string' && raw.message.trim()) return raw.message;
+      return fallback;
+    }
+
     let allVideos = [];
     let filteredVideos = [];
     let currentPage = 1;
@@ -203,14 +210,15 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok || data.ok === false) {
-          throw new Error(data.error || 'Failed to load videos list');
+          throw new Error(readableApiError(data, 'Failed to load videos list'));
         }
 
         const snapshot = window.infinitySnapshotCache?.unwrap(data) || { data };
         applyVideosPayload(snapshot.data);
         window.infinitySnapshotCache?.set('videos', snapshot.data, snapshot.generatedAt);
 
-        const requestedVideo = new URLSearchParams(window.location.search).get('video');
+        const params = new URLSearchParams(window.location.search);
+        const requestedVideo = params.get('videoId') || params.get('video');
         if (requestedVideo && typeof window.openVideoDrawer === 'function') {
           window.openVideoDrawer(requestedVideo);
           window.history.replaceState({}, '', '/videos');

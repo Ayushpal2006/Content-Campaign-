@@ -827,7 +827,7 @@
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || data.ok === false) {
-        throw new Error(data.error || 'Failed to detect RAW');
+        throw new Error(managerErrorMessage(data.error, 'Failed to detect RAW'));
       }
 
       if (statusBox) {
