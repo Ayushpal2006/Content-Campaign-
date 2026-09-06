@@ -1,11 +1,8 @@
-import { verifySessionCookie } from '../../utils/auth';
+import type { APIRoute } from 'astro';
+import { getSessionSecret, verifySessionCookie } from '../../../lib/server/auth';
 
-interface Env {
-  SESSION_SECRET?: string;
-}
-
-export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const sessionSecret = context.env.SESSION_SECRET?.trim();
+export const GET: APIRoute = async ({ request }) => {
+  const sessionSecret = getSessionSecret();
   if (!sessionSecret) {
     return new Response(
       JSON.stringify({ authenticated: false, error: 'SESSION_SECRET is not configured on server' }),
@@ -18,7 +15,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     );
   }
-  const isValid = await verifySessionCookie(context.request, sessionSecret);
+  const isValid = await verifySessionCookie(request, sessionSecret);
 
   return new Response(
     JSON.stringify({ authenticated: isValid }),

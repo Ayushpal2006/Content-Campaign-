@@ -19,7 +19,7 @@ export function isReadAction(action: string): boolean {
 }
 
 export function readCacheSeconds(rawValue?: string): number {
-  const parsed = Number(rawValue);
+  const parsed = Number(rawValue || process.env.INFINITY_READ_CACHE_SECONDS || 30);
   if (!Number.isFinite(parsed)) return DEFAULT_READ_CACHE_SECONDS;
   return Math.max(0, Math.min(300, Math.floor(parsed)));
 }
@@ -46,16 +46,54 @@ async function sha256(value: string): Promise<string> {
 }
 
 export async function createReadCacheKey(
-  request: Request,
+  _request: Request,
   payload: Record<string, unknown>
-): Promise<Request> {
-  const url = new URL(request.url);
+): Promise<string> {
   const fingerprint = await sha256(JSON.stringify(stableValue(payload)));
-  return new Request(`${url.origin}/__infinity_api_cache/${fingerprint}`, { method: 'GET' });
+  return `read_cache_${fingerprint}`;
 }
 
-export function getDefaultCache(): Cache {
-  return (caches as CacheStorage & { default: Cache }).default;
+interface CacheItem {
+  body: string;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  expiresAt: number;
+}
+
+const memoryCache = new Map<string, CacheItem>();
+
+export async function getCachedResponse(cacheKey: string): Promise<Response | null> {
+  const item = memoryCache.get(cacheKey);
+  if (!item) return null;
+  if (Date.now() > item.expiresAt) {
+    memoryCache.delete(cacheKey);
+    return null;
+  }
+  return new Response(item.body, {
+    status: item.status,
+    statusText: item.statusText,
+    headers: item.headers,
+  });
+}
+
+export async function putCachedResponse(
+  cacheKey: string,
+  response: Response,
+  ttlSeconds: number
+): Promise<void> {
+  const text = await response.clone().text();
+  const headers: Record<string, string> = {};
+  response.headers.forEach((val, key) => {
+    headers[key] = val;
+  });
+  memoryCache.set(cacheKey, {
+    body: text,
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+    expiresAt: Date.now() + ttlSeconds * 1000,
+  });
 }
 
 export function responseForBrowser(response: Response, cacheState: 'HIT' | 'MISS'): Response {
@@ -69,22 +107,10 @@ export function responseForBrowser(response: Response, cacheState: 'HIT' | 'MISS
   });
 }
 
-export function responseForEdgeCache(response: Response, ttlSeconds: number): Response {
-  const headers = new Headers(response.headers);
-  headers.set('Cache-Control', `public, max-age=0, s-maxage=${ttlSeconds}`);
-  headers.delete('Set-Cookie');
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
-
 export async function purgeRelatedReadCaches(
   request: Request,
   payload: Record<string, unknown>
 ): Promise<void> {
-  const cache = getDefaultCache();
   const commonPayloads: Array<Record<string, unknown>> = [
     { action: 'bootstrap' },
     { action: 'dashboard' },
@@ -95,10 +121,8 @@ export async function purgeRelatedReadCaches(
   const videoId = typeof payload.videoId === 'string' ? payload.videoId.trim() : '';
   if (videoId) commonPayloads.push({ action: 'video', videoId });
 
-  await Promise.all(
-    commonPayloads.map(async (readPayload) => {
-      const key = await createReadCacheKey(request, readPayload);
-      await cache.delete(key);
-    })
-  );
+  for (const readPayload of commonPayloads) {
+    const key = await createReadCacheKey(request, readPayload);
+    memoryCache.delete(key);
+  }
 }

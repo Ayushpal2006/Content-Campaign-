@@ -6,6 +6,17 @@ interface SessionPayload {
   sid: string;
 }
 
+export const DEFAULT_ACCESS_CODE = 'AKfycbyA79X4pPhDd7N_TNTzD8gOBNN9IGoGmz-R1SU3GeAHwsUPAV7vj51Uf9BnmEh3a-TL';
+export const DEFAULT_SESSION_SECRET = 'infinity-operations-default-session-secret-key-32-chars';
+
+export function getSessionSecret(): string {
+  return (process.env.SESSION_SECRET || import.meta.env?.SESSION_SECRET || DEFAULT_SESSION_SECRET).trim();
+}
+
+export function getAppAccessCode(): string {
+  return (process.env.APP_ACCESS_CODE || import.meta.env?.APP_ACCESS_CODE || DEFAULT_ACCESS_CODE).trim();
+}
+
 function base64UrlEncode(bytes: Uint8Array): string {
   let binary = '';
   const len = bytes.byteLength;

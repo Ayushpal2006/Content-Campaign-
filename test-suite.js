@@ -6,7 +6,7 @@ async function runTests() {
   const codeMatch = envContent.match(/APP_ACCESS_CODE=["\x27]?([^"\x27\r\n]+)/);
   const accessCode = codeMatch ? codeMatch[1].trim() : 'AKfycbyA79X4pPhDd7N_TNTzD8gOBNN9IGoGmz-R1SU3GeAHwsUPAV7vj51Uf9BnmEh3a-TL';
 
-  const baseUrl = 'http://localhost:8788';
+  const baseUrl = process.env.TEST_BASE_URL || 'http://localhost:3000';
   let passed = 0;
   let failed = 0;
 

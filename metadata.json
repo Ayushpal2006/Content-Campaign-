@@ -1,0 +1,6 @@
+{
+  "name": "Infinity Operations Dashboard",
+  "description": "Operations dashboard for video production pipelines, content sprints, and editor management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

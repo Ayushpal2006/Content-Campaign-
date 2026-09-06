@@ -1,11 +1,6 @@
-import { createSessionCookie } from '../../utils/auth';
+import type { APIRoute } from 'astro';
+import { createSessionCookie, getAppAccessCode, getSessionSecret } from '../../../lib/server/auth';
 
-interface Env {
-  APP_ACCESS_CODE?: string;
-  SESSION_SECRET?: string;
-}
-
-// In-memory rate limiting map (per worker isolate)
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(clientIp: string): boolean {
@@ -17,7 +12,7 @@ function checkRateLimit(clientIp: string): boolean {
     return true;
   }
 
-  if (record.count >= 10) {
+  if (record.count >= 20) {
     return false;
   }
 
@@ -25,8 +20,8 @@ function checkRateLimit(clientIp: string): boolean {
   return true;
 }
 
-export const onRequestPost: PagesFunction<Env> = async (context) => {
-  const clientIp = context.request.headers.get('CF-Connecting-IP') || 'unknown';
+export const POST: APIRoute = async ({ request }) => {
+  const clientIp = request.headers.get('x-forwarded-for') || 'unknown';
 
   if (!checkRateLimit(clientIp)) {
     return new Response(
@@ -39,11 +34,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
 
   try {
-    const body = (await context.request.json().catch(() => ({}))) as { accessCode?: unknown };
+    const body = (await request.json().catch(() => ({}))) as { accessCode?: unknown };
     const accessCode = typeof body.accessCode === 'string' ? body.accessCode.trim() : '';
 
-    const expectedCode = context.env.APP_ACCESS_CODE?.trim();
-    const sessionSecret = context.env.SESSION_SECRET?.trim();
+    const expectedCode = getAppAccessCode();
+    const sessionSecret = getSessionSecret();
 
     if (!expectedCode) {
       return new Response(
@@ -76,7 +71,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // Access code is valid -> create signed session cookie
-    const { cookie } = await createSessionCookie(sessionSecret, context.request);
+    const { cookie } = await createSessionCookie(sessionSecret, request);
 
     return new Response(
       JSON.stringify({ ok: true }),
