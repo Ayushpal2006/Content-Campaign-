@@ -23,7 +23,7 @@ function ensureInfinitySnapshotWorker_() {
 
 function webSnapshotChunks_(resource, value, generatedAt) {
   var json = JSON.stringify(value);
-  var compressed = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(json, 'application/json')).getBytes());
+  var compressed = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(json, 'application/json', resource + '.json')).getBytes());
   var total = Math.max(1, Math.ceil(compressed.length / WEB_SNAPSHOT_CHUNK_));
   var rows = [];
   for (var i = 0; i < total; i++) rows.push([resource, i + 1, total, generatedAt, compressed.slice(i * WEB_SNAPSHOT_CHUNK_, (i + 1) * WEB_SNAPSHOT_CHUNK_)]);
@@ -74,7 +74,7 @@ function webSnapshotFromSheet_(sh, resource) {
   var expected = Number(rows[0][2] || 0);
   if (!expected || rows.length !== expected) return null;
   var encoded = rows.map(function(row) { return String(row[4] || ''); }).join('');
-  var json = Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(encoded))).getDataAsString();
+  var json = Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(encoded), 'application/gzip', resource + '.json.gz')).getDataAsString('UTF-8');
   var generated = rows[0][3] instanceof Date ? rows[0][3] : new Date(rows[0][3]);
   return { ok: true, resource: resource, data: JSON.parse(json), generatedAt: generated.toISOString(), ageMs: Math.max(0, Date.now() - generated.getTime()) };
 }
