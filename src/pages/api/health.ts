@@ -1,12 +1,10 @@
 import type { APIRoute } from 'astro';
 import { getAppAccessCode, getSessionSecret } from '../../lib/server/auth';
+import { getRuntimeEnv, readRuntimeEnv } from '../../lib/server/runtime-env';
 
-export const GET: APIRoute = async (context) => {
-  const { locals } = context;
-  const runtimeEnv = ((locals as unknown as { runtime?: { env?: Record<string, string> } })?.runtime?.env) || {};
-  const getEnv = (key: string): string => {
-    return String(runtimeEnv[key] || process.env[key] || (import.meta as any).env?.[key] || '').trim();
-  };
+export const GET: APIRoute = async () => {
+  const runtimeEnv = getRuntimeEnv();
+  const getEnv = (key: string): string => readRuntimeEnv(runtimeEnv, key);
 
   const configured = {
     appsScriptUrl: Boolean(getEnv('APPS_SCRIPT_API_URL')),

@@ -10,6 +10,7 @@ import {
   responseForBrowser,
 } from '../../lib/server/infinity-cache';
 import { handleMockAction } from '../../lib/server/mock-data';
+import { getRuntimeEnv, readRuntimeEnv } from '../../lib/server/runtime-env';
 
 function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) {
@@ -86,11 +87,9 @@ function shouldFallbackFromSnapshot(data: unknown): boolean {
 }
 
 export const POST: APIRoute = async (context) => {
-  const { request, locals } = context;
-  const runtimeEnv = ((locals as unknown as { runtime?: { env?: Record<string, string> } })?.runtime?.env) || {};
-  const getEnv = (key: string): string => {
-    return String(runtimeEnv[key] || process.env[key] || (import.meta as any).env?.[key] || '').trim();
-  };
+  const { request } = context;
+  const runtimeEnv = getRuntimeEnv();
+  const getEnv = (key: string): string => readRuntimeEnv(runtimeEnv, key);
 
   const sessionSecret = getSessionSecret(runtimeEnv);
   if (!sessionSecret) {

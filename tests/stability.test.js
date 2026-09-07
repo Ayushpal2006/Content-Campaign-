@@ -117,6 +117,21 @@ test('snapshot failures fall back to the matching direct Apps Script read', asyn
   assert.match(api, /INFINITY_USE_SNAPSHOTS/);
 });
 
+test('Astro 7 routes use Cloudflare env instead of removed locals.runtime.env', async () => {
+  const routes = await Promise.all([
+    read('src/pages/api/infinity.ts'),
+    read('src/pages/api/auth/login.ts'),
+    read('src/pages/api/auth/session.ts'),
+    read('src/pages/api/health.ts'),
+  ]);
+  for (const route of routes) {
+    assert.doesNotMatch(route, /locals\.runtime\.env|runtime\?\.env/);
+    assert.match(route, /getRuntimeEnv/);
+  }
+  const helper = await read('src/lib/server/runtime-env.ts');
+  assert.match(helper, /cloudflare:workers/);
+});
+
 test('Login redirect-loop prevention logic in login.astro and Layout.astro', async () => {
   const loginPage = await read('src/pages/login.astro');
   assert.match(loginPage, /isLoginUrl/);

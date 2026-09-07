@@ -1,9 +1,10 @@
 import type { APIRoute } from 'astro';
 import { getSessionSecret, verifySessionCookie } from '../../../lib/server/auth';
+import { getRuntimeEnv } from '../../../lib/server/runtime-env';
 
 export const GET: APIRoute = async (context) => {
-  const { request, locals } = context;
-  const runtimeEnv = ((locals as unknown as { runtime?: { env?: Record<string, string> } })?.runtime?.env) || {};
+  const { request } = context;
+  const runtimeEnv = getRuntimeEnv();
   const sessionSecret = getSessionSecret(runtimeEnv);
   if (!sessionSecret) {
     return new Response(

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { createSessionCookie, getAppAccessCode, getSessionSecret } from '../../../lib/server/auth';
+import { getRuntimeEnv } from '../../../lib/server/runtime-env';
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
@@ -21,8 +22,8 @@ function checkRateLimit(clientIp: string): boolean {
 }
 
 export const POST: APIRoute = async (context) => {
-  const { request, locals } = context;
-  const runtimeEnv = ((locals as unknown as { runtime?: { env?: Record<string, string> } })?.runtime?.env) || {};
+  const { request } = context;
+  const runtimeEnv = getRuntimeEnv();
   const clientIp = request.headers.get('x-forwarded-for') || 'unknown';
 
   if (!checkRateLimit(clientIp)) {
