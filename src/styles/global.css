@@ -133,6 +133,7 @@ html, body {
 }
 
 .nav-link {
+  min-height: 44px;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -239,11 +240,15 @@ html, body {
 
 .mobile-menu-toggle {
   display: none;
+  min-height: 44px;
+  min-width: 44px;
   background: none;
   border: none;
   padding: 0.25rem;
   cursor: pointer;
   color: var(--text-main);
+  align-items: center;
+  justify-content: center;
 }
 
 .page-heading {
@@ -1021,7 +1026,7 @@ html, body {
     box-shadow: 0 -8px 24px rgb(15 23 42 / .06);
     backdrop-filter: blur(12px);
   }
-  .mobile-bottom-nav a { display: flex; align-items: center; flex-direction: column; gap: .05rem; padding: .25rem; border-radius: 8px; color: var(--text-muted); font-size: .6rem; font-weight: 700; text-decoration: none; }
+  .mobile-bottom-nav a { display: flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; flex-direction: column; gap: .05rem; padding: .25rem; border-radius: 8px; color: var(--text-muted); font-size: .6rem; font-weight: 700; text-decoration: none; }
   .mobile-bottom-nav a svg { width: 18px; height: 18px; }
   .mobile-bottom-nav a.active { color: var(--brand-700); background: var(--brand-50); }
   .table-container { margin: 0; border-right: 0; border-left: 0; border-radius: 0; }

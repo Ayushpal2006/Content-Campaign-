@@ -1,0 +1,329 @@
+---
+import Layout from '../layouts/Layout.astro';
+import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
+---
+
+<Layout title="My Work" activeTab="my-work">
+  <!-- Controls Bar: Role & Name Selector -->
+  <div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between;">
+      <div>
+        <span class="today-eyebrow">PERSONAL WORKSPACE</span>
+        <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-top: 2px;">My Assigned Work</h2>
+        <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px;">
+          Select your role and name to view your active tasks and pending handoffs.
+        </p>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
+        <div style="display: flex; gap: 0.25rem; background: var(--bg-subtle); padding: 0.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <button id="role-teacher-btn" type="button" class="btn btn-sm btn-primary" onclick="setMyRole('teacher')" style="padding: 0.35rem 0.75rem; font-size: 0.8125rem;">
+            Teacher
+          </button>
+          <button id="role-editor-btn" type="button" class="btn btn-sm btn-secondary" onclick="setMyRole('editor')" style="padding: 0.35rem 0.75rem; font-size: 0.8125rem;">
+            Editor
+          </button>
+        </div>
+
+        <select
+          id="my-person-select"
+          onchange="onPersonSelected(this.value)"
+          style="min-width: 180px; padding: 0.45rem 0.75rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.8125rem; background: #fff; color: var(--text-main); font-weight: 600;"
+        >
+          <option value="">Select your name…</option>
+        </select>
+
+        <button type="button" class="btn btn-secondary btn-sm" onclick="loadMyWorkData(true)">
+          Refresh
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error State -->
+  <div id="my-work-error" class="error-state" style="display: none; margin-bottom: 1.25rem;">
+    <div style="font-weight: 700; font-size: 0.95rem;">Unable to load personal workspace</div>
+    <p id="my-work-error-text" style="font-size: 0.8125rem; margin-top: 0.25rem;">Connection failed.</p>
+    <button class="btn btn-primary btn-sm" onclick="loadMyWorkData(true)" style="margin-top: 0.5rem;">Retry</button>
+  </div>
+
+  <!-- Loading Skeletons -->
+  <div id="my-work-loading" class="card" style="padding: 1.5rem; display: block;">
+    <div class="skeleton skeleton-title"></div>
+    <div class="skeleton skeleton-text"></div>
+    <div class="skeleton skeleton-text"></div>
+  </div>
+
+  <!-- Content Container -->
+  <div id="my-work-content" style="display: none;">
+    <!-- Personal Stat Cards -->
+    <div class="metrics-grid" style="margin-bottom: 1.25rem;">
+      <div class="metric-card badge-blue">
+        <div class="metric-label">Active Tasks</div>
+        <div id="my-stat-active" class="metric-value">0</div>
+      </div>
+      <div class="metric-card badge-amber">
+        <div class="metric-label">Action Required</div>
+        <div id="my-stat-action" class="metric-value">0</div>
+      </div>
+      <div class="metric-card badge-rose">
+        <div class="metric-label">Changes / Urgent</div>
+        <div id="my-stat-urgent" class="metric-value">0</div>
+      </div>
+      <div class="metric-card badge-emerald">
+        <div class="metric-label">Completed / Shipped</div>
+        <div id="my-stat-completed" class="metric-value">0</div>
+      </div>
+    </div>
+
+    <!-- Active Tasks Table Card -->
+    <div class="card">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 id="my-work-table-title" class="card-title">Assigned Pipeline</h2>
+          <p id="my-work-table-subtitle" style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px;">Showing all pending and in-progress items.</p>
+        </div>
+        <span id="my-work-count-badge" class="chip chip-blue">0 items</span>
+      </div>
+
+      <div class="table-container">
+        <table class="compact-table">
+          <thead>
+            <tr>
+              <th>Video ID</th>
+              <th>Topic / Script</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Level</th>
+              <th>Next Required Action</th>
+              <th style="text-align: right;">Workspace</th>
+            </tr>
+          </thead>
+          <tbody id="my-work-tbody">
+            <!-- Filled dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="my-work-empty" class="empty-state" style="display: none; padding: 3rem 1rem;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-subtle); margin-bottom: 0.5rem;">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+        <p id="my-work-empty-text" style="font-weight: 600; color: var(--text-main);">No tasks assigned right now</p>
+        <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem;">
+          You are all caught up! When new videos are assigned, they will appear here.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <VideoDetailDrawer />
+
+  <script is:inline>
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    let currentRole = 'teacher';
+    let currentPerson = '';
+    let cachedVideos = [];
+
+    function setMyRole(role) {
+      currentRole = role;
+      const teacherBtn = document.getElementById('role-teacher-btn');
+      const editorBtn = document.getElementById('role-editor-btn');
+
+      if (role === 'teacher') {
+        teacherBtn.className = 'btn btn-sm btn-primary';
+        editorBtn.className = 'btn btn-sm btn-secondary';
+      } else {
+        teacherBtn.className = 'btn btn-sm btn-secondary';
+        editorBtn.className = 'btn btn-sm btn-primary';
+      }
+
+      populatePersonDropdown();
+      renderMyWork();
+    }
+
+    function onPersonSelected(name) {
+      currentPerson = name;
+      renderMyWork();
+    }
+
+    function populatePersonDropdown() {
+      const select = document.getElementById('my-person-select');
+      if (!select) return;
+
+      const people = new Set();
+      cachedVideos.forEach(v => {
+        if (currentRole === 'teacher') {
+          const name = String(v.talent || v.teacher || '').trim();
+          if (name) people.add(name);
+        } else {
+          const name = String(v.editor || '').trim();
+          if (name && name !== 'Unassigned') people.add(name);
+        }
+      });
+
+      const sorted = Array.from(people).sort();
+      const currentVal = select.value;
+      select.innerHTML = `<option value="">Select your name…</option>` +
+        sorted.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+
+      if (sorted.includes(currentVal)) {
+        select.value = currentVal;
+        currentPerson = currentVal;
+      } else if (sorted.length > 0 && !currentPerson) {
+        select.value = sorted[0];
+        currentPerson = sorted[0];
+      }
+    }
+
+    function determineLevelAndAction(item) {
+      const status = String(item.productionStatus || item.status || '').trim();
+      const isUploaded = Boolean(item.posted) || status === 'Uploaded';
+
+      if (isUploaded) return { level: 10, name: 'Uploaded', next: 'Completed', chip: 'chip-emerald' };
+      if (status === 'Approved') return { level: 9, name: 'Approved', next: 'Confirm Upload', chip: 'chip-emerald' };
+      if (status === 'Changes') return { level: 8, name: 'Changes Required', next: 'Fix changes & upload FINAL', chip: 'chip-red' };
+      if (status === 'QC Pending') return { level: 7, name: 'QC Pending', next: 'Wait for QC decision', chip: 'chip-purple' };
+      if (status === 'Editing') return { level: 6, name: 'Editing', next: 'Edit & upload FINAL', chip: 'chip-amber' };
+      if (item.editor && String(item.editor).trim()) return { level: 5, name: 'Editor Assigned', next: 'Start editing', chip: 'chip-blue' };
+      if (item.rawFileUrl || status === 'Raw Ready') return { level: 4, name: 'RAW Uploaded', next: 'Wait for Editor Assignment', chip: 'chip-blue' };
+      if (status === 'Recording') return { level: 3, name: 'Recording', next: 'Record and upload RAW file', chip: 'chip-amber' };
+      if (item.scriptReady || status === 'Script Ready') return { level: 2, name: 'Script Ready', next: 'Record video', chip: 'chip-blue' };
+      return { level: 1, name: 'Script Created', next: 'Complete & approve script', chip: 'chip-default' };
+    }
+
+    async function loadMyWorkData(forceRefresh = false) {
+      const loading = document.getElementById('my-work-loading');
+      const content = document.getElementById('my-work-content');
+      const errorBox = document.getElementById('my-work-error');
+
+      const cached = window.infinitySnapshotCache?.get('bootstrap');
+      if (cached && Array.isArray(cached.data?.videos?.items || cached.data?.videos)) {
+        cachedVideos = cached.data.videos.items || cached.data.videos;
+        populatePersonDropdown();
+        renderMyWork();
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+      }
+
+      try {
+        const res = await fetch('/api/infinity', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'bootstrap', refresh: Boolean(forceRefresh) })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) {
+          throw new Error(data?.error || 'Failed to fetch personal workspace data');
+        }
+
+        const snapshot = window.infinitySnapshotCache?.unwrap(data) || { data };
+        cachedVideos = snapshot.data?.videos?.items || snapshot.data?.videos || [];
+        populatePersonDropdown();
+        renderMyWork();
+
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+      } catch (err) {
+        if (loading) loading.style.display = 'none';
+        if (errorBox && !cached) {
+          document.getElementById('my-work-error-text').textContent = err.message;
+          errorBox.style.display = 'block';
+        }
+      }
+    }
+
+    function renderMyWork() {
+      const select = document.getElementById('my-person-select');
+      const person = select ? select.value : currentPerson;
+
+      const filtered = cachedVideos.filter(v => {
+        if (!person) return false;
+        if (currentRole === 'teacher') {
+          return String(v.talent || v.teacher || '').trim().toLowerCase() === person.toLowerCase();
+        } else {
+          return String(v.editor || '').trim().toLowerCase() === person.toLowerCase();
+        }
+      });
+
+      let activeCount = 0;
+      let actionCount = 0;
+      let urgentCount = 0;
+      let completedCount = 0;
+
+      filtered.forEach(v => {
+        const s = String(v.productionStatus || '').trim().toLowerCase();
+        if (v.posted || s === 'uploaded') completedCount++;
+        else {
+          activeCount++;
+          if (s === 'changes') urgentCount++;
+          if (currentRole === 'teacher' && (s === 'script pending' || s === 'script ready' || s === 'recording')) {
+            actionCount++;
+          }
+          if (currentRole === 'editor' && (s === 'editing' || s === 'changes')) {
+            actionCount++;
+          }
+        }
+      });
+
+      document.getElementById('my-stat-active').textContent = activeCount;
+      document.getElementById('my-stat-action').textContent = actionCount;
+      document.getElementById('my-stat-urgent').textContent = urgentCount;
+      document.getElementById('my-stat-completed').textContent = completedCount;
+      document.getElementById('my-work-count-badge').textContent = `${filtered.length} total`;
+
+      const tbody = document.getElementById('my-work-tbody');
+      const emptyBox = document.getElementById('my-work-empty');
+
+      if (filtered.length === 0) {
+        if (tbody) tbody.innerHTML = '';
+        if (emptyBox) {
+          emptyBox.style.display = 'block';
+          document.getElementById('my-work-empty-text').textContent = person
+            ? `No tasks found for ${person}`
+            : 'Select your name above to view your tasks';
+        }
+      } else {
+        if (emptyBox) emptyBox.style.display = 'none';
+        if (tbody) {
+          tbody.innerHTML = filtered.map(item => {
+            const id = esc(item.videoId || '—');
+            const topic = esc(item.scriptPreview || item.title || item.script || 'Untitled Video').split('\n')[0].slice(0, 70);
+            const priority = esc(item.priority || 'P2 - Normal');
+            const { level, name, next, chip } = determineLevelAndAction(item);
+
+            return `
+              <tr>
+                <td>
+                  <button type="button" class="btn-link" onclick="openVideoDrawer('${id}')" style="font-family: var(--font-mono); font-weight: 700; color: var(--brand-700); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+                    ${id}
+                  </button>
+                </td>
+                <td style="font-weight: 500; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  ${topic}
+                </td>
+                <td><span class="chip ${priority.includes('P0') || priority.includes('P1') ? 'chip-red' : 'chip-default'}">${priority}</span></td>
+                <td><span class="chip ${chip}">${esc(name)}</span></td>
+                <td><span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted);">Level ${level}/10</span></td>
+                <td style="font-size: 0.8125rem; font-weight: 600; color: var(--brand-800);">${esc(next)}</td>
+                <td style="text-align: right;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="openVideoDrawer('${id}')" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                    Manage →
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadMyWorkData();
+    });
+    window.__refreshOperationsData = () => loadMyWorkData(true);
+  </script>
+</Layout>

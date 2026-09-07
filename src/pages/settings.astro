@@ -1,0 +1,170 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="System Settings" activeTab="settings">
+  <div style="max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem;">
+    <!-- Head Card -->
+    <div class="card" style="padding: 1.25rem 1.5rem;">
+      <div class="today-eyebrow">CONFIGURATION & DIAGNOSTICS</div>
+      <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-top: 2px;">System & Operational Settings</h2>
+      <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px;">
+        Monitor Google Apps Script upstream connectivity, edge cache status, and application preferences.
+      </p>
+    </div>
+
+    <!-- Backend & Health Status Card -->
+    <div class="card" style="padding: 1.25rem 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div>
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Operations Backend Connectivity</h3>
+          <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px;">Real-time health check of Cloudflare Functions and Apps Script API.</p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="checkHealthStatus()">
+          Test Connection
+        </button>
+      </div>
+
+      <div id="health-loading" style="display: block; padding: 1rem 0;">
+        <div class="skeleton skeleton-text"></div>
+        <div class="skeleton skeleton-text"></div>
+      </div>
+
+      <div id="health-results" style="display: none;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+          <div class="card" style="padding: 0.875rem; background: var(--bg-subtle);">
+            <div style="font-size: 0.6875rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Overall Health</div>
+            <div id="health-overall" style="font-size: 0.9rem; font-weight: 700; margin-top: 2px;">Checking…</div>
+          </div>
+          <div class="card" style="padding: 0.875rem; background: var(--bg-subtle);">
+            <div style="font-size: 0.6875rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Apps Script URL</div>
+            <div id="health-appsscript" style="font-size: 0.9rem; font-weight: 700; margin-top: 2px;">Checking…</div>
+          </div>
+          <div class="card" style="padding: 0.875rem; background: var(--bg-subtle);">
+            <div style="font-size: 0.6875rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">API Token</div>
+            <div id="health-token" style="font-size: 0.9rem; font-weight: 700; margin-top: 2px;">Checking…</div>
+          </div>
+          <div class="card" style="padding: 0.875rem; background: var(--bg-subtle);">
+            <div style="font-size: 0.6875rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Edge Cache TTL</div>
+            <div id="health-cache" style="font-size: 0.9rem; font-weight: 700; margin-top: 2px;">30s</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edge & Client Cache Card -->
+    <div class="card" style="padding: 1.25rem 1.5rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Cache & Storage Controls</h3>
+      <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px;">
+        Manage client-side cached snapshots and stale-while-revalidate data.
+      </p>
+
+      <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="clearClientCache()">
+          Clear Snapshot Cache
+        </button>
+        <span id="cache-cleared-text" style="display: none; font-size: 0.8125rem; font-weight: 600; color: #10b981;">
+          ✓ Client snapshot cache cleared
+        </span>
+      </div>
+    </div>
+
+    <!-- Timezone & Production Rules Card -->
+    <div class="card" style="padding: 1.25rem 1.5rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Operations Standard Rules</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
+        <div style="padding: 0.75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <strong style="font-size: 0.8125rem; display: block; color: var(--text-main);">Timezone Standard</strong>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Asia/Kolkata (IST) for Today and MIS operations</span>
+        </div>
+        <div style="padding: 0.75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <strong style="font-size: 0.8125rem; display: block; color: var(--text-main);">Google Sheets Compatibility</strong>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Talent column in Sheets is rendered as "Teacher" throughout UI</span>
+        </div>
+        <div style="padding: 0.75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+          <strong style="font-size: 0.8125rem; display: block; color: var(--text-main);">Idempotent Actions</strong>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Every workflow mutation uses a unique requestId to prevent duplicates</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session Management Card -->
+    <div class="card" style="padding: 1.25rem 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Active Session</h3>
+          <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px;">
+            Your session is secured with an HttpOnly signed session cookie.
+          </p>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="handleLogout()">
+          Log Out of Infinity Ops
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    async function checkHealthStatus() {
+      const loading = document.getElementById('health-loading');
+      const results = document.getElementById('health-results');
+      if (loading) loading.style.display = 'block';
+      if (results) results.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json().catch(() => ({}));
+
+        const overallEl = document.getElementById('health-overall');
+        const scriptEl = document.getElementById('health-appsscript');
+        const tokenEl = document.getElementById('health-token');
+        const cacheEl = document.getElementById('health-cache');
+
+        if (overallEl) {
+          overallEl.textContent = data.ok ? 'Healthy ✓' : 'Degraded';
+          overallEl.style.color = data.ok ? '#10b981' : '#e11d48';
+        }
+        if (scriptEl) {
+          const cfg = data.configured?.appsScriptUrl;
+          scriptEl.textContent = cfg ? 'Connected ✓' : 'Not Set';
+          scriptEl.style.color = cfg ? '#10b981' : '#e11d48';
+        }
+        if (tokenEl) {
+          const cfg = data.configured?.apiToken;
+          tokenEl.textContent = cfg ? 'Configured ✓' : 'Not Set';
+          tokenEl.style.color = cfg ? '#10b981' : '#e11d48';
+        }
+        if (cacheEl) {
+          cacheEl.textContent = `${data.cacheSeconds || 30} seconds`;
+        }
+
+        if (loading) loading.style.display = 'none';
+        if (results) results.style.display = 'block';
+      } catch (e) {
+        if (loading) loading.style.display = 'none';
+      }
+    }
+
+    function clearClientCache() {
+      try {
+        if (window.infinitySnapshotCache?.clear) {
+          window.infinitySnapshotCache.clear();
+        } else {
+          sessionStorage.clear();
+        }
+        const text = document.getElementById('cache-cleared-text');
+        if (text) {
+          text.style.display = 'inline';
+          setTimeout(() => { text.style.display = 'none'; }, 3000);
+        }
+        window.showToast?.('Client snapshot cache cleared', 'success');
+      } catch (e) {
+        window.showToast?.('Failed to clear cache', 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      checkHealthStatus();
+    });
+  </script>
+</Layout>

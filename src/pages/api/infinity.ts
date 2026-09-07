@@ -17,6 +17,16 @@ function errorMessage(error: unknown, fallback: string): string {
     if (error.message.trim()) return error.message;
   }
   if (typeof error === 'string' && error.trim()) return error;
+  if (error && typeof error === 'object') {
+    const obj = error as Record<string, unknown>;
+    if (typeof obj.message === 'string' && obj.message.trim()) return obj.message.trim();
+    if (typeof obj.error === 'string' && obj.error.trim()) return obj.error.trim();
+    try {
+      return JSON.stringify(obj);
+    } catch {
+      return fallback;
+    }
+  }
   return fallback;
 }
 
@@ -56,8 +66,14 @@ const ALLOWED_ACTIONS = new Set([
   'snapshot',
 ]);
 
-export const POST: APIRoute = async ({ request }) => {
-  const sessionSecret = getSessionSecret();
+export const POST: APIRoute = async (context) => {
+  const { request, locals } = context;
+  const runtimeEnv = ((locals as unknown as { runtime?: { env?: Record<string, string> } })?.runtime?.env) || {};
+  const getEnv = (key: string): string => {
+    return String(runtimeEnv[key] || process.env[key] || (import.meta as any).env?.[key] || '').trim();
+  };
+
+  const sessionSecret = getSessionSecret(runtimeEnv);
   if (!sessionSecret) {
     return new Response(
       JSON.stringify({ ok: false, error: 'SESSION_SECRET is not configured on server.' }),
@@ -102,7 +118,7 @@ export const POST: APIRoute = async ({ request }) => {
     );
   }
 
-  const cacheTtl = readCacheSeconds(process.env.INFINITY_READ_CACHE_SECONDS);
+  const cacheTtl = readCacheSeconds(getEnv('INFINITY_READ_CACHE_SECONDS'));
   const canUseReadCache = isReadAction(action) && body.refresh !== true && cacheTtl > 0;
   const cacheKey = canUseReadCache
     ? await createReadCacheKey(request, { ...body, action })
@@ -114,8 +130,8 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // 3. Upstream configuration check
-  const apiUrl = process.env.APPS_SCRIPT_API_URL?.trim();
-  const apiToken = process.env.INFINITY_API_TOKEN?.trim();
+  const apiUrl = getEnv('APPS_SCRIPT_API_URL');
+  const apiToken = getEnv('INFINITY_API_TOKEN');
 
   // If upstream is configured, forward to Google Apps Script
   if (apiUrl && apiToken) {
@@ -154,14 +170,19 @@ export const POST: APIRoute = async ({ request }) => {
       clearTimeout(timeoutId);
 
       if (data && typeof data === 'object') {
-        if (
-          'error' in data &&
-          data.error &&
-          typeof data.error === 'object' &&
-          'message' in data.error &&
-          typeof data.error.message === 'string'
-        ) {
-          data = { ...data, error: data.error.message };
+        const record = data as Record<string, unknown>;
+        if ('error' in record && record.error) {
+          if (typeof record.error === 'object') {
+            const errObj = record.error as Record<string, unknown>;
+            const msg = typeof errObj.message === 'string' && errObj.message.trim()
+              ? errObj.message.trim()
+              : typeof errObj.error === 'string' && errObj.error.trim()
+              ? errObj.error.trim()
+              : typeof errObj.code === 'string' && errObj.code.trim()
+              ? errObj.code.trim()
+              : JSON.stringify(record.error);
+            record.error = msg;
+          }
         }
 
         const upstreamResult = new Response(JSON.stringify(data), {
@@ -197,7 +218,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Mock data must be an explicit local-development choice. Never silently
   // report fake success when production configuration or Google is unavailable.
-  if (process.env.INFINITY_USE_MOCKS !== 'true') {
+  if (getEnv('INFINITY_USE_MOCKS') !== 'true') {
     return jsonError(
       'Operations backend is not configured. Set APPS_SCRIPT_API_URL and INFINITY_API_TOKEN.',
       503,

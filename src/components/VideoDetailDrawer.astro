@@ -124,16 +124,16 @@
 
         <div id="drawer-prince-whatsapp-row" class="handoff-row" style="display: none;">
           <div class="handoff-copy"><strong>Send RAW folder to Prince</strong><span>RAW coordinator · upload source files</span></div>
-          <a id="drawer-prince-whatsapp-link" href="#" target="_blank" rel="noopener noreferrer" class="btn whatsapp-icon-btn" aria-label="WhatsApp RAW folder to Prince" title="WhatsApp Prince">
+          <button id="drawer-prince-whatsapp-btn" type="button" class="btn whatsapp-icon-btn" aria-label="WhatsApp RAW folder to Prince" title="WhatsApp Prince" onclick="openPrinceWhatsApp()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2a9.84 9.84 0 0 0-8.5 14.78L2 22l5.36-1.5A9.9 9.9 0 1 0 12.04 2Zm0 17.98a8.06 8.06 0 0 1-4.1-1.12l-.3-.18-3.18.9.86-3.1-.2-.32A8.05 8.05 0 1 1 12.04 20Zm4.42-6.04c-.24-.12-1.43-.7-1.65-.79-.22-.08-.38-.12-.54.12-.16.24-.62.79-.76.95-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2a7.25 7.25 0 0 1-1.34-1.66c-.14-.24-.01-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.31-.74-1.79-.2-.47-.4-.41-.54-.42h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.43-.59 1.63-1.15.2-.56.2-1.04.14-1.15-.06-.1-.22-.16-.46-.28Z"/></svg>
-          </a>
+          </button>
         </div>
 
         <div id="drawer-whatsapp-row" class="handoff-row" style="display: none;">
           <div class="handoff-copy"><strong>Message assigned editor</strong><span id="drawer-editor-whatsapp-caption">Send RAW and editing brief</span></div>
-          <a id="drawer-whatsapp-link" href="#" target="_blank" rel="noopener noreferrer" class="btn whatsapp-icon-btn" aria-label="WhatsApp assigned editor" title="WhatsApp editor">
+          <button id="drawer-whatsapp-btn" type="button" class="btn whatsapp-icon-btn" aria-label="WhatsApp assigned editor" title="WhatsApp editor" onclick="openEditorWhatsApp()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2a9.84 9.84 0 0 0-8.5 14.78L2 22l5.36-1.5A9.9 9.9 0 1 0 12.04 2Zm0 17.98a8.06 8.06 0 0 1-4.1-1.12l-.3-.18-3.18.9.86-3.1-.2-.32A8.05 8.05 0 1 1 12.04 20Zm4.42-6.04c-.24-.12-1.43-.7-1.65-.79-.22-.08-.38-.12-.54.12-.16.24-.62.79-.76.95-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2a7.25 7.25 0 0 1-1.34-1.66c-.14-.24-.01-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.31-.74-1.79-.2-.47-.4-.41-.54-.42h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.43-.59 1.63-1.15.2-.56.2-1.04.14-1.15-.06-.1-.22-.16-.46-.28Z"/></svg>
-          </a>
+          </button>
         </div>
 
         <div id="drawer-no-links" style="font-size: 0.8125rem; color: var(--text-subtle); padding: 0.35rem 0;">No external asset links returned.</div>
@@ -146,6 +146,23 @@
       <div id="drawer-timeline-container" style="display: flex; flex-direction: column; gap: 0.25rem;">
         <!-- Filled dynamically -->
       </div>
+    </div>
+
+    <!-- Revision History -->
+    <div id="drawer-revision-section" style="display: flex; flex-direction: column; gap: 0.375rem;">
+      <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Revision History</span>
+      <div id="drawer-revision-container" style="display: flex; flex-direction: column; gap: 0.25rem;">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- Sheet Synchronization State -->
+    <div id="drawer-sync-section" style="display: flex; flex-direction: column; gap: 0.25rem; padding: 0.65rem 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.6875rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Google Sheet Sync</span>
+        <span id="drawer-sync-badge" class="chip chip-emerald" style="font-size: 0.6875rem;">Synchronized</span>
+      </div>
+      <div id="drawer-sync-time" style="font-size: 0.75rem; color: var(--text-muted);">Last verified just now</div>
     </div>
 
     <!-- Drive detection -->
@@ -335,9 +352,12 @@
     if (accountEl) accountEl.value = safeVal(obj.account) === '—' ? '' : safeVal(obj.account);
     if (postUrlEl) postUrlEl.value = safeVal(obj.postUrl) === '—' ? '' : safeVal(obj.postUrl);
     renderOperationalAlert({ status, qcChangeNotes, blocker, lastErrorAt, sla });
+    currentDrawerVideoObj = obj;
     loadEditorOptions(editor).then(() => renderWhatsappHandoffs(obj));
     updateManagerActionState(obj);
     renderMissionProgress(obj);
+    renderRevisionHistory(obj);
+    renderSyncState(obj);
 
     // Status Chip
     const statusChip = document.getElementById('drawer-status-chip');
@@ -452,34 +472,81 @@
     }
   }
 
+  let currentDrawerVideoObj = null;
+
   function buildWhatsAppUrl(phone, message) {
     const digits = String(phone || '').replace(/\D/g, '');
     return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}` : '';
   }
 
-  function renderWhatsappHandoffs(obj) {
-    const id = String(obj.videoId || activeSelectedVideoId || '').trim();
-    const teacher = String(obj.teacher || obj.talent || '').trim();
+  function openEditorWhatsApp() {
+    if (!currentDrawerVideoObj) return;
+    const obj = currentDrawerVideoObj;
     const editor = String(obj.editor || obj.assignedTo || '').trim();
-    const rawFolder = obj.rawFolderUrl || obj.rawFolder || '';
-    const rawFile = obj.rawFileUrl || obj.rawFileLink || '';
-    const finalFolder = obj.finalFolderUrl || obj.finalFolder || '';
-    const brief = String(obj.editorBrief || obj.recordingNotes || obj.notes || '').trim();
-    const setHref = (rowId, linkId, href) => {
-      const row = document.getElementById(rowId);
-      const link = document.getElementById(linkId);
-      if (row) row.style.display = href ? 'flex' : 'none';
-      if (link && href) link.href = href;
-    };
-    const princeUrl = rawFolder ? buildWhatsAppUrl(PRINCE_WHATSAPP, `Hi Prince bhai,\n\n${id}${teacher ? ` (${teacher})` : ''} ka RAW folder ready hai.\n${rawFolder}\n\nPlease saari RAW videos isi folder mein upload kar dena.`) : '';
-    setHref('drawer-prince-whatsapp-row', 'drawer-prince-whatsapp-link', princeUrl);
+    const id = String(obj.videoId || activeSelectedVideoId || '').trim();
+    const teacher = String(obj.talent || obj.teacher || '').trim();
+    const priority = String(obj.priority || 'P2 - Normal').trim();
+    const instructions = String(obj.editorBrief || obj.recordingNotes || obj.script || '').trim();
+    const rawFile = String(obj.rawFileUrl || obj.rawFileLink || '').trim();
+    const rawFolder = String(obj.rawFolderUrl || obj.rawFolder || '').trim();
+    const finalFolder = String(obj.finalFolderUrl || obj.finalFolder || '').trim();
 
     const editorPhone = editorPhoneByName.get(editor) || '';
-    const editorMessage = `Hi ${editor},\n\n${id} ki editing assigned hai.${teacher ? `\nTeacher: ${teacher}` : ''}${brief ? `\n\nEditor Brief:\n${brief}` : ''}${rawFile ? `\n\nRAW File: ${rawFile}` : rawFolder ? `\n\nRAW Folder: ${rawFolder}` : ''}${finalFolder ? `\nFINAL Folder: ${finalFolder}` : ''}`;
-    const backendUrl = obj.editorWhatsAppUrl || obj.whatsappLink || obj.whatsapp || '';
-    setHref('drawer-whatsapp-row', 'drawer-whatsapp-link', backendUrl || (editor && editorPhone ? buildWhatsAppUrl(editorPhone, editorMessage) : ''));
+    if (!editorPhone) {
+      showToast(`Phone number not found for editor: ${editor}`, 'error');
+      return;
+    }
+
+    // Required content per specification:
+    // - Editor name
+    // - Video ID
+    // - Teacher
+    // - Priority
+    // - Script/editing instructions
+    // - RAW file URL
+    // - RAW folder URL
+    // - FINAL folder URL
+    const lines = [
+      `Editor: ${editor}`,
+      `Video ID: ${id}`,
+      `Teacher: ${teacher || 'Unassigned'}`,
+      `Priority: ${priority}`,
+      `Script/Instructions:\n${instructions || 'None provided'}`
+    ];
+    if (rawFile) lines.push(`RAW File: ${rawFile}`);
+    if (rawFolder) lines.push(`RAW Folder: ${rawFolder}`);
+    if (finalFolder) lines.push(`FINAL Folder: ${finalFolder}`);
+
+    const url = buildWhatsAppUrl(editorPhone, lines.join('\n\n'));
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function openPrinceWhatsApp() {
+    if (!currentDrawerVideoObj) return;
+    const obj = currentDrawerVideoObj;
+    const id = String(obj.videoId || activeSelectedVideoId || '').trim();
+    const teacher = String(obj.talent || obj.teacher || '').trim();
+    const rawFolder = String(obj.rawFolderUrl || obj.rawFolder || '').trim();
+    if (!rawFolder) {
+      showToast('RAW folder is not available yet', 'error');
+      return;
+    }
+    const message = `Hi Prince,\n\nVideo ID: ${id}\nTeacher: ${teacher}\nRAW Folder: ${rawFolder}\n\nPlease upload the source RAW recording files here.`;
+    const url = buildWhatsAppUrl(PRINCE_WHATSAPP, message);
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function renderWhatsappHandoffs(obj) {
+    const editor = String(obj.editor || obj.assignedTo || '').trim();
+    const rawFolder = obj.rawFolderUrl || obj.rawFolder || '';
+
+    const princeRow = document.getElementById('drawer-prince-whatsapp-row');
+    if (princeRow) princeRow.style.display = rawFolder ? 'flex' : 'none';
+
+    const editorRow = document.getElementById('drawer-whatsapp-row');
     const caption = document.getElementById('drawer-editor-whatsapp-caption');
-    if (caption) caption.textContent = editor ? `${editor} · Editor Brief + RAW` : 'Assign editor first';
+    if (editorRow) editorRow.style.display = editor && editor !== 'Unassigned' ? 'flex' : 'none';
+    if (caption) caption.textContent = editor && editor !== 'Unassigned' ? `${editor} · Send brief + assets` : 'Assign editor first';
   }
 
   function rememberEditorContacts(list) {
@@ -491,30 +558,122 @@
     });
   }
 
+  // Canonical 10 Workflow Levels:
+  // 1. Script Created
+  // 2. Script Ready
+  // 3. Recording
+  // 4. RAW Uploaded
+  // 5. Editor Assigned
+  // 6. Editing
+  // 7. QC Pending
+  // 8. Changes Required
+  // 9. Approved
+  // 10. Uploaded
   function renderMissionProgress(obj) {
     const status = String(obj.productionStatus || '').trim();
-    const steps = [
-      ['Script', Boolean(String(obj.script || '').trim())],
-      ['Approve', Boolean(obj.scriptReady) || status !== 'Script Pending'],
-      ['RAW folder', Boolean(obj.rawFolderUrl)],
-      ['RAW ready', Boolean(obj.rawFileUrl)],
-      ['Editor', Boolean(obj.editor)],
-      ['FINAL', Boolean(obj.finalFileUrl)],
-      ['QC', ['Approved', 'Uploaded'].includes(status)],
-      ['Uploaded', Boolean(obj.posted) || status === 'Uploaded']
+    const hasScript = Boolean(String(obj.script || '').trim());
+    const isScriptReady = Boolean(obj.scriptReady) || ['Script Ready','Recording','Raw Ready','Editing','QC Pending','Changes','Approved','Uploaded'].includes(status);
+    const hasRaw = Boolean(obj.rawFileUrl) || ['Raw Ready','Editing','QC Pending','Changes','Approved','Uploaded'].includes(status);
+    const hasEditor = Boolean(obj.editor && obj.editor !== 'Unassigned');
+    const isEditing = ['Editing','QC Pending','Changes','Approved','Uploaded'].includes(status);
+    const hasFinal = Boolean(obj.finalFileUrl);
+    const isQcPending = ['QC Pending','Approved','Uploaded'].includes(status);
+    const hasChanges = status === 'Changes';
+    const isApproved = ['Approved','Uploaded'].includes(status);
+    const isUploaded = Boolean(obj.posted) || status === 'Uploaded';
+
+    const levels = [
+      { num: 1, name: 'Script Created', done: hasScript, next: 'Approve Content Script' },
+      { num: 2, name: 'Script Ready', done: isScriptReady, next: 'Record Video (Teacher)' },
+      { num: 3, name: 'Recording', done: hasRaw || (status !== 'Script Pending' && status !== 'Script Ready'), next: 'Upload RAW File' },
+      { num: 4, name: 'RAW Uploaded', done: hasRaw, next: 'Assign Editor' },
+      { num: 5, name: 'Editor Assigned', done: hasEditor && hasRaw, next: 'Begin Editing' },
+      { num: 6, name: 'Editing', done: (hasFinal || isQcPending || isApproved) && isEditing, next: 'Detect FINAL File' },
+      { num: 7, name: 'QC Pending', done: isQcPending, next: 'Review & Decide QC' },
+      { num: 8, name: 'Changes Required', done: !hasChanges && (isApproved || isUploaded), next: hasChanges ? 'Fix Changes & Upload Revision' : 'QC Decision' },
+      { num: 9, name: 'Approved', done: isApproved, next: 'Confirm Video Uploaded' },
+      { num: 10, name: 'Uploaded', done: isUploaded, next: 'None (Completed)' }
     ];
-    let completed = 0;
-    steps.forEach(([, done], index) => { if (done && index === completed) completed++; });
-    const current = Math.min(completed, steps.length - 1);
-    const progress = Math.round((completed / steps.length) * 100);
-    const level = document.getElementById('drawer-mission-level');
-    const next = document.getElementById('drawer-mission-next');
-    const bar = document.getElementById('drawer-mission-progress');
-    const list = document.getElementById('drawer-mission-steps');
-    if (level) level.textContent = completed === steps.length ? 'MISSION COMPLETE · 8/8' : `LEVEL ${completed + 1} OF ${steps.length}`;
-    if (next) next.textContent = completed === steps.length ? 'Video shipped 🎉' : `Next: ${steps[completed][0]}`;
-    if (bar) bar.style.width = `${progress}%`;
-    if (list) list.innerHTML = steps.map(([label, done], index) => `<div class="mission-step ${done ? 'done' : index === current ? 'current' : ''}"><b>${done ? '✓' : index + 1}</b><span title="${label}">${label}</span></div>`).join('');
+
+    let completedCount = 0;
+    for (let i = 0; i < levels.length; i++) {
+      if (levels[i].done) completedCount++;
+    }
+
+    let currentLevel = 1;
+    if (isUploaded) currentLevel = 10;
+    else if (isApproved) currentLevel = 9;
+    else if (hasChanges) currentLevel = 8;
+    else if (status === 'QC Pending' || hasFinal) currentLevel = 7;
+    else if (status === 'Editing' || (hasEditor && hasRaw)) currentLevel = 6;
+    else if (hasEditor) currentLevel = 5;
+    else if (hasRaw || status === 'Raw Ready') currentLevel = 4;
+    else if (status === 'Recording') currentLevel = 3;
+    else if (isScriptReady) currentLevel = 2;
+
+    const progress = isUploaded ? 100 : Math.round((completedCount / levels.length) * 100);
+    const activeLevelObj = levels[currentLevel - 1] || levels[0];
+
+    const levelEl = document.getElementById('drawer-mission-level');
+    const nextEl = document.getElementById('drawer-mission-next');
+    const barEl = document.getElementById('drawer-mission-progress');
+    const listEl = document.getElementById('drawer-mission-steps');
+
+    if (levelEl) levelEl.textContent = isUploaded ? 'MISSION COMPLETE · 10/10' : `LEVEL ${currentLevel} OF 10: ${activeLevelObj.name}`;
+    if (nextEl) nextEl.textContent = isUploaded ? 'Video shipped 🎉' : `Next: ${activeLevelObj.next}`;
+    if (barEl) barEl.style.width = `${progress}%`;
+    if (listEl) {
+      listEl.innerHTML = levels.map((lvl) => {
+        const isCurrent = lvl.num === currentLevel && !isUploaded;
+        return `<div class="mission-step ${lvl.done ? 'done' : isCurrent ? 'current' : ''}"><b>${lvl.done ? '✓' : lvl.num}</b><span title="${lvl.name}">${lvl.name}</span></div>`;
+      }).join('');
+    }
+  }
+
+  function renderRevisionHistory(obj) {
+    const container = document.getElementById('drawer-revision-container');
+    if (!container) return;
+
+    const revList = Array.isArray(obj.revisions)
+      ? obj.revisions
+      : Array.isArray(obj.revisionHistory)
+      ? obj.revisionHistory
+      : [];
+
+    if (revList.length > 0) {
+      container.innerHTML = revList.map((rev, i) => `
+        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; padding: 0.25rem 0; border-bottom: 1px dashed var(--border-subtle);">
+          <span style="font-weight: 600; color: var(--text-main);">Revision #${rev.revisionNo || i + 1}</span>
+          <span style="color: var(--text-muted);">${rev.date || rev.timestamp || 'Recorded'}</span>
+        </div>
+      `).join('');
+    } else {
+      const revisionCount = Number(obj.revisionCount || obj.revisionsCount || 0);
+      container.innerHTML = `
+        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; padding: 0.25rem 0; border-bottom: 1px dashed var(--border-subtle);">
+          <span style="color: var(--text-muted);">Current Revision</span>
+          <span style="font-weight: 600; color: var(--text-main);">${revisionCount > 0 ? `#${revisionCount}` : 'Initial Version'}</span>
+        </div>
+      `;
+    }
+  }
+
+  function renderSyncState(obj) {
+    const badge = document.getElementById('drawer-sync-badge');
+    const timeEl = document.getElementById('drawer-sync-time');
+
+    const lastSync = obj.lastSyncAt || obj.syncedAt || obj.updatedAt || new Date().toLocaleTimeString();
+    const hasError = Boolean(obj.lastErrorAt && obj.lastErrorAt !== '—');
+
+    if (badge) {
+      badge.textContent = hasError ? 'Sync Attention' : 'Sheet Synced';
+      badge.className = `chip ${hasError ? 'chip-red' : 'chip-emerald'}`;
+    }
+    if (timeEl) {
+      timeEl.textContent = hasError
+        ? `Last error logged: ${obj.lastErrorAt}`
+        : `Verified with Google Sheets: ${lastSync}`;
+    }
   }
 
   function updateManagerActionState(obj) {
