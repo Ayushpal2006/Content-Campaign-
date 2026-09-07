@@ -44,6 +44,18 @@
       <div id="drawer-mission-steps" class="mission-steps"></div>
     </div>
 
+    <!-- QC decision -->
+    <div style="display:flex; flex-direction:column; gap:0.45rem;">
+      <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">QC Decision</span>
+      <label class="manager-field">Change notes (required for Changes)
+        <textarea id="drawer-qc-notes" rows="3" placeholder="Explain exact changes for the editor..."></textarea>
+      </label>
+      <div class="manager-action-grid">
+        <button id="qc-changes-btn" class="btn btn-secondary" onclick="submitManagerQcChanges()">Request Changes</button>
+        <button id="qc-approve-btn" class="btn btn-primary" onclick="submitManagerQcApprove()">Approve QC ✓</button>
+      </div>
+    </div>
+
     <div id="drawer-operational-alert" class="operational-alert" style="display:none;" role="alert">
       <div class="operational-alert-head">
         <strong id="drawer-operational-alert-title">Action required</strong>
@@ -171,18 +183,6 @@
       <div class="manager-action-grid">
         <button id="detect-raw-btn" class="btn btn-secondary" onclick="openDetectRawModal()">Detect RAW</button>
         <button id="detect-final-btn" class="btn btn-secondary" onclick="detectManagerFinal()">Detect FINAL</button>
-      </div>
-    </div>
-
-    <!-- QC decision -->
-    <div style="display:flex; flex-direction:column; gap:0.45rem;">
-      <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">QC Decision</span>
-      <label class="manager-field">Change notes (required for Changes)
-        <textarea id="drawer-qc-notes" rows="3" placeholder="Explain exact changes for the editor..."></textarea>
-      </label>
-      <div class="manager-action-grid">
-        <button id="qc-changes-btn" class="btn btn-secondary" onclick="submitManagerQcChanges()">Request Changes</button>
-        <button id="qc-approve-btn" class="btn btn-primary" onclick="submitManagerQcApprove()">Approve QC ✓</button>
       </div>
     </div>
 
@@ -352,7 +352,7 @@
     if (scriptEl) scriptEl.value = scriptText === '—' ? '' : scriptText;
     if (editorBriefEl) editorBriefEl.value = editorBrief === '—' ? '' : editorBrief;
     if (videoTypeEl) videoTypeEl.value = videoType === '—' ? 'Original Recording' : videoType;
-    if (qcNotesEl) qcNotesEl.value = safeVal(obj.qcChangeNotes) === '—' ? '' : safeVal(obj.qcChangeNotes);
+    if (qcNotesEl) qcNotesEl.value = qcChangeNotes === '—' ? '' : qcChangeNotes;
     if (accountEl) accountEl.value = safeVal(obj.account) === '—' ? '' : safeVal(obj.account);
     if (postUrlEl) postUrlEl.value = safeVal(obj.postUrl) === '—' ? '' : safeVal(obj.postUrl);
     renderOperationalAlert({ status, qcChangeNotes, blocker, lastErrorAt, sla });
