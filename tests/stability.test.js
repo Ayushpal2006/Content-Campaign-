@@ -5,8 +5,8 @@ import test from 'node:test';
 import {
   clearSessionCookie,
   createSessionCookie,
-  DEFAULT_ACCESS_CODE,
-  DEFAULT_SESSION_SECRET,
+  getAppAccessCode,
+  getSessionSecret,
   verifySessionCookie,
 } from '../src/lib/server/auth.ts';
 import {
@@ -73,8 +73,7 @@ test('Layout navigation links all 8 core views with >=44px mobile touch targets'
 });
 
 test('Authentication: successful cookie generation, verification, and logout', async () => {
-  assert.ok(DEFAULT_ACCESS_CODE.length > 0);
-  const secret = DEFAULT_SESSION_SECRET;
+  const secret = 'test-only-session-secret-that-is-never-used-in-production';
   const mockReq = new Request('https://infinity-operations.pages.dev/api/auth/login');
 
   // 1. Create session cookie
@@ -102,6 +101,20 @@ test('Authentication: successful cookie generation, verification, and logout', a
   const cleared = clearSessionCookie(mockReq);
   assert.match(cleared, /Max-Age=0/);
   assert.match(cleared, /Expires=Thu, 01 Jan 1970/);
+});
+
+test('Authentication refuses missing production credentials instead of using hard-coded defaults', () => {
+  assert.strictEqual(getAppAccessCode({}), '');
+  assert.strictEqual(getSessionSecret({}), '');
+});
+
+test('snapshot failures fall back to the matching direct Apps Script read', async () => {
+  const api = await read('src/pages/api/infinity.ts');
+  assert.match(api, /SNAPSHOT_FALLBACK_ACTIONS/);
+  assert.match(api, /Blob object must have non-null content type/i);
+  assert.match(api, /X-Infinity-Snapshot-Fallback/);
+  assert.match(api, /action:\s*fallbackAction/);
+  assert.match(api, /INFINITY_USE_SNAPSHOTS/);
 });
 
 test('Login redirect-loop prevention logic in login.astro and Layout.astro', async () => {

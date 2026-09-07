@@ -66,6 +66,25 @@ const ALLOWED_ACTIONS = new Set([
   'snapshot',
 ]);
 
+const SNAPSHOT_FALLBACK_ACTIONS: Record<string, string> = {
+  bootstrap: 'bootstrap',
+  dashboard: 'dashboard',
+  videos: 'videos',
+  editor_load: 'editor_load',
+};
+
+function shouldFallbackFromSnapshot(data: unknown): boolean {
+  if (!data || typeof data !== 'object') return false;
+  const record = data as Record<string, unknown>;
+  if (record.ok !== false) return false;
+  const message = errorMessage(record.error, '').toLowerCase();
+  return (
+    message.includes('blob object must have non-null content type') ||
+    message.includes('unsupported action') ||
+    message.includes('snapshot')
+  );
+}
+
 export const POST: APIRoute = async (context) => {
   const { request, locals } = context;
   const runtimeEnv = ((locals as unknown as { runtime?: { env?: Record<string, string> } })?.runtime?.env) || {};
@@ -137,9 +156,16 @@ export const POST: APIRoute = async (context) => {
   if (apiUrl && apiToken) {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
+      const snapshotResource = typeof body.resource === 'string' ? body.resource.trim() : '';
+      const fallbackAction = action === 'snapshot' ? SNAPSHOT_FALLBACK_ACTIONS[snapshotResource] : '';
+      // The currently deployed Apps Script snapshot compressor is broken. Keep
+      // snapshot support opt-in until that deployment is repaired; direct reads
+      // remain protected by the same short Cloudflare-side cache.
+      const bypassBrokenSnapshot = Boolean(fallbackAction) && getEnv('INFINITY_USE_SNAPSHOTS') !== 'true';
+      let usedSnapshotFallback = bypassBrokenSnapshot;
       const upstreamPayload = {
         ...body,
-        action,
+        action: bypassBrokenSnapshot ? fallbackAction : action,
         token: apiToken,
       };
 
@@ -169,6 +195,38 @@ export const POST: APIRoute = async (context) => {
 
       clearTimeout(timeoutId);
 
+      // Snapshot generation is an optimization, not a hard dependency. Older
+      // Apps Script deployments can fail while building compressed blobs even
+      // though their direct read actions are healthy. Fall back once to the
+      // equivalent direct read so the UI remains usable until the worker is
+      // repaired. The successful response still enters the short read cache.
+      if (fallbackAction && shouldFallbackFromSnapshot(data)) {
+        const fallbackController = new AbortController();
+        timeoutId = setTimeout(() => fallbackController.abort(), 25000);
+        upstreamResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            ...body,
+            action: fallbackAction,
+            token: apiToken,
+          }),
+          redirect: 'follow',
+          signal: fallbackController.signal,
+        });
+        responseText = await upstreamResponse.text();
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          data = null;
+        }
+        clearTimeout(timeoutId);
+        usedSnapshotFallback = true;
+      }
+
       if (data && typeof data === 'object') {
         const record = data as Record<string, unknown>;
         if ('error' in record && record.error) {
@@ -191,6 +249,7 @@ export const POST: APIRoute = async (context) => {
             'Content-Type': 'application/json',
             'Cache-Control': 'no-store, no-cache, must-revalidate',
             'Server-Timing': `apps-script;dur=${Date.now() - upstreamStartedAt}`,
+            'X-Infinity-Snapshot-Fallback': usedSnapshotFallback ? 'direct' : 'none',
           },
         });
 

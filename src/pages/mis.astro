@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 ---
 
-<Layout title="Daily MIS" activeTab="mis">
+<Layout title="Daily Report" activeTab="mis">
   <div id="mis-error" class="error-state" style="display:none;margin-bottom:1rem;"></div>
   <div id="mis-loading" class="card" style="padding:1.25rem;">
     <div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-metric"></div>
@@ -10,13 +10,14 @@ import Layout from '../layouts/Layout.astro';
 
   <div id="mis-content" style="display:none;gap:1rem;flex-direction:column;">
     <div class="card" style="padding:1rem 1.2rem;display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap;">
-      <div><div class="today-eyebrow" style="color:var(--brand-700);">DAILY MANAGEMENT REPORT</div><h2 style="font-size:1.05rem;margin-top:.15rem;">Email-ready campaign MIS</h2><p style="font-size:.78rem;color:var(--text-muted);margin-top:.2rem;">Same truthful production data, formatted for management.</p></div>
+      <div><div class="today-eyebrow" style="color:var(--brand-700);">DAILY MANAGEMENT REPORT</div><h2 style="font-size:1.05rem;margin-top:.15rem;">Review before sending</h2><p style="font-size:.78rem;color:var(--text-muted);margin-top:.2rem;">Actual production data in a clear management format.</p></div>
       <span class="chip chip-emerald">HTML email preview</span>
     </div>
 
     <div class="mis-preview-shell">
       <div class="mis-email-head"><span>INFINITY OPERATIONS · DAILY MIS</span><h1>Campaign Production Report</h1><p id="mis-date">—</p></div>
       <div class="mis-email-body">
+        <div id="mis-executive-summary" class="mis-custom-note-preview" style="display:block;margin-bottom:1rem;"></div>
         <h3>Today at a glance</h3>
         <div id="mis-metrics" class="mis-metrics"></div>
         <h3>Production pipeline</h3>
@@ -108,6 +109,8 @@ import Layout from '../layouts/Layout.astro';
       const uploaded = Number(today.Uploaded || data.todayUploaded || 0);
       const overdue = Number(data.overdue || 0);
       const blocked = Number(data.blocked || 0);
+      const completionRate = planned > 0 ? Math.round((uploaded / planned) * 100) : 0;
+      const pendingToday = Math.max(0, planned - uploaded);
       document.getElementById('mis-date').textContent = new Date().toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'});
       const metrics = [
         ['Planned', planned, 'Scheduled today'],
@@ -116,6 +119,9 @@ import Layout from '../layouts/Layout.astro';
         ['Attention', overdue + blocked, `${overdue} overdue · ${blocked} blocked`]
       ];
       document.getElementById('mis-metrics').innerHTML = metrics.map(([label,value,note]) => `<div class="mis-metric"><span>${label}</span><strong>${value}</strong><small>${note}</small></div>`).join('');
+      document.getElementById('mis-executive-summary').textContent = planned
+        ? `Executive summary: ${uploaded} of ${planned} planned videos are uploaded (${completionRate}%). ${pendingToday} remain in today’s workflow. Current attention queue: ${overdue} overdue and ${blocked} blocked.`
+        : `Executive summary: No videos are currently classified in today’s plan. Campaign pipeline data is shown below.`;
       const stages = ['Script Pending','Script Ready','Editing','QC Pending','Changes','Approved','Uploaded'];
       document.getElementById('mis-pipeline').innerHTML = stages.map(stage => `<tr><td style="font-weight:700">${stage}</td><td>${Number(today[stage] || 0)}</td><td>${Number(all[stage] || 0)}</td></tr>`).join('');
       document.getElementById('mis-focus').innerHTML = `<strong>Manager focus:</strong> Clear ${overdue} overdue and ${blocked} blocked item(s); protect the next delivery window.`;
