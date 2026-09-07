@@ -167,7 +167,7 @@ test('Action UX: mutations use idempotent requestId, click disable, and no [obje
   const drawer = await read('src/components/VideoDetailDrawer.astro');
   assert.match(drawer, /requestId/);
   assert.match(drawer, /actionButton\.disabled = true/);
-  assert.match(drawer, /isManagerActionRunning/);
+  assert.match(drawer, /managerActionsByVideo/);
   assert.match(drawer, /managerErrorMessage/);
 
   const api = await read('src/pages/api/infinity.ts');
