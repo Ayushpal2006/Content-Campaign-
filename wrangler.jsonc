@@ -3,5 +3,9 @@
   "name": "infinity-operations",
   "pages_build_output_dir": "dist",
   "compatibility_date": "2026-08-28",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "INFINITY_USE_MOCKS": "false",
+    "INFINITY_READ_CACHE_SECONDS": "30"
+  }
 }

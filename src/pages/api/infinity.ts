@@ -17,6 +17,16 @@ function errorMessage(error: unknown, fallback: string): string {
     if (error.message.trim()) return error.message;
   }
   if (typeof error === 'string' && error.trim()) return error;
+  if (error && typeof error === 'object') {
+    const obj = error as Record<string, unknown>;
+    if (typeof obj.message === 'string' && obj.message.trim()) return obj.message.trim();
+    if (typeof obj.error === 'string' && obj.error.trim()) return obj.error.trim();
+    try {
+      return JSON.stringify(obj);
+    } catch {
+      return fallback;
+    }
+  }
   return fallback;
 }
 
@@ -56,8 +66,33 @@ const ALLOWED_ACTIONS = new Set([
   'snapshot',
 ]);
 
-export const POST: APIRoute = async ({ request }) => {
-  const sessionSecret = getSessionSecret();
+const SNAPSHOT_FALLBACK_ACTIONS: Record<string, string> = {
+  bootstrap: 'bootstrap',
+  dashboard: 'dashboard',
+  videos: 'videos',
+  editor_load: 'editor_load',
+};
+
+function shouldFallbackFromSnapshot(data: unknown): boolean {
+  if (!data || typeof data !== 'object') return false;
+  const record = data as Record<string, unknown>;
+  if (record.ok !== false) return false;
+  const message = errorMessage(record.error, '').toLowerCase();
+  return (
+    message.includes('blob object must have non-null content type') ||
+    message.includes('unsupported action') ||
+    message.includes('snapshot')
+  );
+}
+
+export const POST: APIRoute = async (context) => {
+  const { request, locals } = context;
+  const runtimeEnv = ((locals as unknown as { runtime?: { env?: Record<string, string> } })?.runtime?.env) || {};
+  const getEnv = (key: string): string => {
+    return String(runtimeEnv[key] || process.env[key] || (import.meta as any).env?.[key] || '').trim();
+  };
+
+  const sessionSecret = getSessionSecret(runtimeEnv);
   if (!sessionSecret) {
     return new Response(
       JSON.stringify({ ok: false, error: 'SESSION_SECRET is not configured on server.' }),
@@ -102,7 +137,7 @@ export const POST: APIRoute = async ({ request }) => {
     );
   }
 
-  const cacheTtl = readCacheSeconds(process.env.INFINITY_READ_CACHE_SECONDS);
+  const cacheTtl = readCacheSeconds(getEnv('INFINITY_READ_CACHE_SECONDS'));
   const canUseReadCache = isReadAction(action) && body.refresh !== true && cacheTtl > 0;
   const cacheKey = canUseReadCache
     ? await createReadCacheKey(request, { ...body, action })
@@ -114,16 +149,23 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // 3. Upstream configuration check
-  const apiUrl = process.env.APPS_SCRIPT_API_URL?.trim();
-  const apiToken = process.env.INFINITY_API_TOKEN?.trim();
+  const apiUrl = getEnv('APPS_SCRIPT_API_URL');
+  const apiToken = getEnv('INFINITY_API_TOKEN');
 
   // If upstream is configured, forward to Google Apps Script
   if (apiUrl && apiToken) {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
+      const snapshotResource = typeof body.resource === 'string' ? body.resource.trim() : '';
+      const fallbackAction = action === 'snapshot' ? SNAPSHOT_FALLBACK_ACTIONS[snapshotResource] : '';
+      // The currently deployed Apps Script snapshot compressor is broken. Keep
+      // snapshot support opt-in until that deployment is repaired; direct reads
+      // remain protected by the same short Cloudflare-side cache.
+      const bypassBrokenSnapshot = Boolean(fallbackAction) && getEnv('INFINITY_USE_SNAPSHOTS') !== 'true';
+      let usedSnapshotFallback = bypassBrokenSnapshot;
       const upstreamPayload = {
         ...body,
-        action,
+        action: bypassBrokenSnapshot ? fallbackAction : action,
         token: apiToken,
       };
 
@@ -153,15 +195,52 @@ export const POST: APIRoute = async ({ request }) => {
 
       clearTimeout(timeoutId);
 
+      // Snapshot generation is an optimization, not a hard dependency. Older
+      // Apps Script deployments can fail while building compressed blobs even
+      // though their direct read actions are healthy. Fall back once to the
+      // equivalent direct read so the UI remains usable until the worker is
+      // repaired. The successful response still enters the short read cache.
+      if (fallbackAction && shouldFallbackFromSnapshot(data)) {
+        const fallbackController = new AbortController();
+        timeoutId = setTimeout(() => fallbackController.abort(), 25000);
+        upstreamResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            ...body,
+            action: fallbackAction,
+            token: apiToken,
+          }),
+          redirect: 'follow',
+          signal: fallbackController.signal,
+        });
+        responseText = await upstreamResponse.text();
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          data = null;
+        }
+        clearTimeout(timeoutId);
+        usedSnapshotFallback = true;
+      }
+
       if (data && typeof data === 'object') {
-        if (
-          'error' in data &&
-          data.error &&
-          typeof data.error === 'object' &&
-          'message' in data.error &&
-          typeof data.error.message === 'string'
-        ) {
-          data = { ...data, error: data.error.message };
+        const record = data as Record<string, unknown>;
+        if ('error' in record && record.error) {
+          if (typeof record.error === 'object') {
+            const errObj = record.error as Record<string, unknown>;
+            const msg = typeof errObj.message === 'string' && errObj.message.trim()
+              ? errObj.message.trim()
+              : typeof errObj.error === 'string' && errObj.error.trim()
+              ? errObj.error.trim()
+              : typeof errObj.code === 'string' && errObj.code.trim()
+              ? errObj.code.trim()
+              : JSON.stringify(record.error);
+            record.error = msg;
+          }
         }
 
         const upstreamResult = new Response(JSON.stringify(data), {
@@ -170,6 +249,7 @@ export const POST: APIRoute = async ({ request }) => {
             'Content-Type': 'application/json',
             'Cache-Control': 'no-store, no-cache, must-revalidate',
             'Server-Timing': `apps-script;dur=${Date.now() - upstreamStartedAt}`,
+            'X-Infinity-Snapshot-Fallback': usedSnapshotFallback ? 'direct' : 'none',
           },
         });
 
@@ -197,7 +277,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Mock data must be an explicit local-development choice. Never silently
   // report fake success when production configuration or Google is unavailable.
-  if (process.env.INFINITY_USE_MOCKS !== 'true') {
+  if (getEnv('INFINITY_USE_MOCKS') !== 'true') {
     return jsonError(
       'Operations backend is not configured. Set APPS_SCRIPT_API_URL and INFINITY_API_TOKEN.',
       503,

@@ -20,7 +20,9 @@ function checkRateLimit(clientIp: string): boolean {
   return true;
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async (context) => {
+  const { request, locals } = context;
+  const runtimeEnv = ((locals as unknown as { runtime?: { env?: Record<string, string> } })?.runtime?.env) || {};
   const clientIp = request.headers.get('x-forwarded-for') || 'unknown';
 
   if (!checkRateLimit(clientIp)) {
@@ -37,8 +39,8 @@ export const POST: APIRoute = async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as { accessCode?: unknown };
     const accessCode = typeof body.accessCode === 'string' ? body.accessCode.trim() : '';
 
-    const expectedCode = getAppAccessCode();
-    const sessionSecret = getSessionSecret();
+    const expectedCode = getAppAccessCode(runtimeEnv);
+    const sessionSecret = getSessionSecret(runtimeEnv);
 
     if (!expectedCode) {
       return new Response(

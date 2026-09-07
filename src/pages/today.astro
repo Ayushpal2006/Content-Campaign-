@@ -1,0 +1,385 @@
+---
+import Layout from '../layouts/Layout.astro';
+import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
+---
+
+<Layout title="Today's Mission" activeTab="today">
+  <!-- Error Banner -->
+  <div id="today-error" class="error-state" style="display: none; margin-bottom: 1.25rem;">
+    <div style="font-weight: 700; font-size: 0.95rem;">Unable to load today's operational data</div>
+    <p id="today-error-text" style="font-size: 0.8125rem; margin-top: 0.25rem;">Failed to communicate with operations backend.</p>
+    <button class="btn btn-primary btn-sm" onclick="loadTodayData(true)" style="margin-top: 0.5rem;">
+      Retry Connection
+    </button>
+  </div>
+
+  <!-- Loading Skeletons -->
+  <div id="today-skeletons" style="display: block;">
+    <div class="metrics-grid">
+      <div class="skeleton skeleton-metric"></div>
+      <div class="skeleton skeleton-metric"></div>
+      <div class="skeleton skeleton-metric"></div>
+      <div class="skeleton skeleton-metric"></div>
+      <div class="skeleton skeleton-metric"></div>
+      <div class="skeleton skeleton-metric"></div>
+    </div>
+    <div class="card" style="padding: 1.25rem; margin-top: 1.25rem;">
+      <div class="skeleton skeleton-title"></div>
+      <div class="skeleton skeleton-text"></div>
+      <div class="skeleton skeleton-text"></div>
+      <div class="skeleton skeleton-text"></div>
+    </div>
+  </div>
+
+  <!-- Dynamic Content -->
+  <div id="today-content" style="display: none;">
+    <!-- Mission Header Card -->
+    <section class="today-mission card" aria-labelledby="today-mission-title">
+      <div class="today-mission-copy">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+          <span class="today-eyebrow">TODAY'S OPERATIONS · ASIA/KOLKATA</span>
+          <span id="ist-date-badge" class="chip chip-blue" style="font-size: 0.75rem; font-weight: 600;">—</span>
+        </div>
+        <h2 id="today-mission-title" style="margin-top: 0.25rem;">Win today’s content sprint</h2>
+        <p id="today-mission-summary">Live operations tracking for videos scheduled for publishing today.</p>
+      </div>
+      <div id="today-status-grid" class="today-status-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- KPI Metric Cards Grid -->
+    <div id="today-kpi-grid" class="metrics-grid" style="margin-top: 1.25rem;">
+      <!-- Filled dynamically -->
+    </div>
+
+    <!-- Running Videos List -->
+    <section class="card today-running-card" style="margin-top: 1.25rem;" aria-labelledby="today-running-title">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 id="today-running-title" class="card-title">Today's Scheduled Videos</h2>
+          <p class="today-running-subtitle" style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px;">
+            Stage, teacher, assigned editor, and next required action for every video planned today.
+          </p>
+        </div>
+        <span id="today-running-count" class="chip chip-rose">0 videos</span>
+      </div>
+
+      <div class="table-container" style="margin-top: 0.5rem;">
+        <table class="compact-table">
+          <thead>
+            <tr>
+              <th>Video ID</th>
+              <th>Teacher</th>
+              <th>Editor</th>
+              <th>Current Stage</th>
+              <th>Level</th>
+              <th>Next Action</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="today-running-tbody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="today-running-empty" class="empty-state today-running-empty" style="display: none; padding: 3rem 1rem;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-subtle); margin-bottom: 0.5rem;">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+        <p style="font-weight: 600; color: var(--text-main);">No videos scheduled for today</p>
+        <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem;">
+          Check the master schedule in Google Sheets or view the full video list.
+        </p>
+        <a href="/videos" class="btn btn-secondary btn-sm" style="margin-top: 0.75rem;">Browse All Videos →</a>
+      </div>
+    </section>
+  </div>
+
+  <VideoDetailDrawer />
+
+  <script is:inline>
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    function getIndiaDateString() {
+      try {
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        return formatter.format(new Date()); // YYYY-MM-DD
+      } catch {
+        return new Date().toISOString().split('T')[0];
+      }
+    }
+
+    function getIndiaDisplayDate() {
+      try {
+        return new Intl.DateTimeFormat('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        }).format(new Date());
+      } catch {
+        return new Date().toDateString();
+      }
+    }
+
+    function normalizeDateKey(val) {
+      if (!val) return '';
+      const text = String(val).trim();
+      let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(text);
+      if (m) return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+      m = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/.exec(text);
+      if (m) return `${m[3]}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
+      const d = new Date(text);
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().split('T')[0];
+      }
+      return '';
+    }
+
+    function determineLevelAndNextAction(item) {
+      const status = String(item.productionStatus || item.status || '').trim();
+      const hasRaw = Boolean(item.rawFileUrl);
+      const hasFinal = Boolean(item.finalFileUrl);
+      const isUploaded = Boolean(item.posted) || status === 'Uploaded';
+
+      if (isUploaded) {
+        return { level: 10, levelName: 'Uploaded', nextAction: 'None (Completed)', chipClass: 'chip-emerald' };
+      }
+      if (status === 'Approved') {
+        return { level: 9, levelName: 'Approved', nextAction: 'Confirm Upload', chipClass: 'chip-emerald' };
+      }
+      if (status === 'Changes') {
+        return { level: 8, levelName: 'Changes Required', nextAction: 'Upload Revision & Detect FINAL', chipClass: 'chip-red' };
+      }
+      if (status === 'QC Pending') {
+        return { level: 7, levelName: 'QC Pending', nextAction: 'Review & Decide QC', chipClass: 'chip-purple' };
+      }
+      if (status === 'Editing') {
+        return { level: 6, levelName: 'Editing', nextAction: hasFinal ? 'Run Detect FINAL' : 'Complete Edit', chipClass: 'chip-amber' };
+      }
+      if (item.editor && String(item.editor).trim()) {
+        return { level: 5, levelName: 'Editor Assigned', nextAction: 'Begin Editing', chipClass: 'chip-blue' };
+      }
+      if (hasRaw || status === 'Raw Ready') {
+        return { level: 4, levelName: 'RAW Uploaded', nextAction: 'Assign Editor', chipClass: 'chip-blue' };
+      }
+      if (status === 'Recording') {
+        return { level: 3, levelName: 'Recording', nextAction: 'Upload RAW to Drive', chipClass: 'chip-amber' };
+      }
+      if (item.scriptReady || status === 'Script Ready') {
+        return { level: 2, levelName: 'Script Ready', nextAction: 'Record Video (Teacher)', chipClass: 'chip-blue' };
+      }
+      return { level: 1, levelName: 'Script Created', nextAction: 'Approve Content Script', chipClass: 'chip-default' };
+    }
+
+    async function loadTodayData(forceRefresh = false) {
+      const skeletons = document.getElementById('today-skeletons');
+      const content = document.getElementById('today-content');
+      const errorBox = document.getElementById('today-error');
+      const errorText = document.getElementById('today-error-text');
+      const lastUpdatedEl = document.getElementById('last-updated-text');
+      const istBadge = document.getElementById('ist-date-badge');
+
+      if (istBadge) istBadge.textContent = getIndiaDisplayDate();
+
+      const cached = window.infinitySnapshotCache?.get('bootstrap');
+      if (cached) {
+        renderTodayPage(cached.data);
+        if (skeletons) skeletons.style.display = 'none';
+        if (content) content.style.display = 'block';
+        if (lastUpdatedEl) lastUpdatedEl.textContent = 'Showing cached snapshot…';
+      } else {
+        if (skeletons) skeletons.style.display = 'block';
+        if (content) content.style.display = 'none';
+      }
+      if (errorBox) errorBox.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/infinity', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'bootstrap', refresh: Boolean(forceRefresh) })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) {
+          const msg = typeof data?.error === 'string' ? data.error : data?.error?.message || 'Failed to fetch operational data';
+          throw new Error(msg);
+        }
+
+        const snapshot = window.infinitySnapshotCache?.unwrap(data) || { data };
+        window.infinitySnapshotCache?.set('bootstrap', snapshot.data, snapshot.generatedAt);
+        window.__infinityBootstrap = snapshot.data;
+
+        renderTodayPage(snapshot.data);
+
+        if (lastUpdatedEl) {
+          const d = new Date();
+          lastUpdatedEl.textContent = `Updated ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+        }
+        if (skeletons) skeletons.style.display = 'none';
+        if (content) content.style.display = 'block';
+      } catch (err) {
+        if (skeletons) skeletons.style.display = 'none';
+        if (errorBox && !cached) {
+          if (errorText) errorText.textContent = err.message || 'Failed to communicate with operations backend.';
+          errorBox.style.display = 'block';
+        }
+        if (cached) window.showToast?.('Fresh data unavailable. Showing last snapshot.', 'error');
+      }
+    }
+
+    function renderTodayPage(raw) {
+      const payload = raw?.result || raw?.data || raw || {};
+      const dashboard = payload.dashboard || payload;
+      const allVideos = Array.isArray(payload.videos?.items)
+        ? payload.videos.items
+        : Array.isArray(payload.videos)
+        ? payload.videos
+        : [];
+
+      const todayKey = getIndiaDateString();
+
+      // Filter videos scheduled for today (Asia/Kolkata)
+      const todayVideos = allVideos.filter(v => {
+        if (!v || !v.publishDate) return false;
+        return normalizeDateKey(v.publishDate) === todayKey;
+      });
+
+      // Status breakdown specifically for today
+      const counts = {
+        planned: todayVideos.length || Number(dashboard.plannedToday || 0),
+        scriptReady: 0,
+        recording: 0,
+        rawReady: 0,
+        editing: 0,
+        qcPending: 0,
+        changes: 0,
+        approved: 0,
+        uploaded: 0
+      };
+
+      todayVideos.forEach(v => {
+        const s = String(v.productionStatus || '').trim().toLowerCase();
+        if (v.posted || s === 'uploaded') counts.uploaded++;
+        else if (s === 'approved') counts.approved++;
+        else if (s === 'changes') counts.changes++;
+        else if (s === 'qc pending') counts.qcPending++;
+        else if (s === 'editing') counts.editing++;
+        else if (s === 'raw ready' || v.rawFileUrl) counts.rawReady++;
+        else if (s === 'recording') counts.recording++;
+        else if (s === 'script ready' || v.scriptReady) counts.scriptReady++;
+      });
+
+      // Update Summary Header
+      const summaryEl = document.getElementById('today-mission-summary');
+      if (summaryEl) {
+        summaryEl.textContent = `${counts.planned} videos planned today · ${counts.uploaded} completed · ${counts.planned - counts.uploaded} in progress`;
+      }
+
+      // Render Stage Pills
+      const statusGrid = document.getElementById('today-status-grid');
+      if (statusGrid) {
+        statusGrid.innerHTML = `
+          <div class="today-status-chip"><span class="chip-label">Planned</span><strong class="chip-val">${counts.planned}</strong></div>
+          <div class="today-status-chip"><span class="chip-label">Script Ready</span><strong class="chip-val">${counts.scriptReady}</strong></div>
+          <div class="today-status-chip"><span class="chip-label">Recording</span><strong class="chip-val">${counts.recording}</strong></div>
+          <div class="today-status-chip"><span class="chip-label">RAW Ready</span><strong class="chip-val">${counts.rawReady}</strong></div>
+          <div class="today-status-chip"><span class="chip-label">Editing</span><strong class="chip-val">${counts.editing}</strong></div>
+          <div class="today-status-chip"><span class="chip-label">QC Pending</span><strong class="chip-val">${counts.qcPending}</strong></div>
+          <div class="today-status-chip"><span class="chip-label">Changes</span><strong class="chip-val">${counts.changes}</strong></div>
+          <div class="today-status-chip"><span class="chip-label">Approved</span><strong class="chip-val">${counts.approved}</strong></div>
+          <div class="today-status-chip"><span class="chip-label">Uploaded</span><strong class="chip-val" style="color: #10b981;">${counts.uploaded}</strong></div>
+        `;
+      }
+
+      // Render KPI Metrics
+      const kpiGrid = document.getElementById('today-kpi-grid');
+      if (kpiGrid) {
+        kpiGrid.innerHTML = `
+          <div class="metric-card badge-blue">
+            <div class="metric-label">Planned Today</div>
+            <div class="metric-value">${counts.planned}</div>
+          </div>
+          <div class="metric-card badge-emerald">
+            <div class="metric-label">Completed Today</div>
+            <div class="metric-value">${counts.uploaded}</div>
+          </div>
+          <div class="metric-card badge-amber">
+            <div class="metric-label">In Editing</div>
+            <div class="metric-value">${counts.editing}</div>
+          </div>
+          <div class="metric-card badge-purple">
+            <div class="metric-label">QC Pending</div>
+            <div class="metric-value">${counts.qcPending}</div>
+          </div>
+          <div class="metric-card badge-rose">
+            <div class="metric-label">Changes Required</div>
+            <div class="metric-value">${counts.changes}</div>
+          </div>
+          <div class="metric-card badge-emerald">
+            <div class="metric-label">Ready to Post</div>
+            <div class="metric-value">${counts.approved}</div>
+          </div>
+        `;
+      }
+
+      // Render Table of Running Videos
+      const tbody = document.getElementById('today-running-tbody');
+      const emptyBox = document.getElementById('today-running-empty');
+      const countChip = document.getElementById('today-running-count');
+
+      if (countChip) countChip.textContent = `${todayVideos.length} videos`;
+
+      if (todayVideos.length === 0) {
+        if (tbody) tbody.innerHTML = '';
+        if (emptyBox) emptyBox.style.display = 'block';
+      } else {
+        if (emptyBox) emptyBox.style.display = 'none';
+        if (tbody) {
+          tbody.innerHTML = todayVideos.map(item => {
+            const id = esc(item.videoId || '—');
+            const teacher = esc(item.talent || item.teacher || '—');
+            const editor = esc(item.editor || 'Unassigned');
+            const { level, levelName, nextAction, chipClass } = determineLevelAndNextAction(item);
+
+            return `
+              <tr>
+                <td>
+                  <button type="button" class="btn-link" onclick="openVideoDrawer('${id}')" style="font-family: var(--font-mono); font-weight: 700; color: var(--brand-700); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+                    ${id}
+                  </button>
+                </td>
+                <td style="font-weight: 600;">${teacher}</td>
+                <td style="color: ${editor === 'Unassigned' ? 'var(--brand-600)' : 'var(--text-main)'}; font-weight: 500;">${editor}</td>
+                <td><span class="chip ${chipClass}">${esc(levelName)}</span></td>
+                <td><span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted);">Level ${level}/10</span></td>
+                <td style="font-size: 0.8125rem; font-weight: 600; color: var(--brand-800);">${esc(nextAction)}</td>
+                <td style="text-align: right;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="openVideoDrawer('${id}')" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                    Manage →
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadTodayData();
+    });
+    window.__refreshOperationsData = () => loadTodayData(true);
+  </script>
+</Layout>
