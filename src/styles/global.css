@@ -897,6 +897,10 @@ html, body {
 }
 
 /* State Boxes */
+[hidden] {
+  display: none !important;
+}
+
 .empty-state, .error-state {
   padding: 2.5rem 1.25rem;
   text-align: center;

@@ -112,7 +112,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         </svg>
         <p id="my-work-empty-text" style="font-weight: 600; color: var(--text-main);">No tasks assigned right now</p>
         <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem;">
-          You are all caught up! When new videos are assigned, they will appear here.
+          Select a person to check their assignments. An empty list does not confirm completion.
         </p>
       </div>
     </div>
@@ -172,9 +172,9 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       if (sorted.includes(currentVal)) {
         select.value = currentVal;
         currentPerson = currentVal;
-      } else if (sorted.length > 0 && !currentPerson) {
-        select.value = sorted[0];
-        currentPerson = sorted[0];
+      } else {
+        select.value = '';
+        currentPerson = '';
       }
     }
 
@@ -217,11 +217,15 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || data.ok === false) {
-          throw new Error(data?.error || 'Failed to fetch personal workspace data');
+          throw new Error(data?.error?.message || (typeof data?.error === 'string' ? data.error : 'Failed to fetch personal workspace data'));
         }
 
         const snapshot = window.infinitySnapshotCache?.unwrap(data) || { data };
-        cachedVideos = snapshot.data?.videos?.items || snapshot.data?.videos || [];
+        const payload = snapshot.data?.result || snapshot.data?.data || snapshot.data;
+        const videos = payload?.videos?.items || payload?.videos;
+        if (!Array.isArray(videos)) throw new Error('Workspace response is missing the videos list. Please retry.');
+        cachedVideos = videos;
+        if (errorBox) errorBox.style.display = 'none';
         populatePersonDropdown();
         renderMyWork();
 
@@ -229,7 +233,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         if (content) content.style.display = 'block';
       } catch (err) {
         if (loading) loading.style.display = 'none';
-        if (errorBox && !cached) {
+        if (errorBox) {
           document.getElementById('my-work-error-text').textContent = err.message;
           errorBox.style.display = 'block';
         }
