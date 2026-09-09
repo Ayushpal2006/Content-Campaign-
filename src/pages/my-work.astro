@@ -11,14 +11,14 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
         <span class="today-eyebrow">PERSONAL WORKSPACE</span>
         <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-top: 2px;">My Assigned Work</h2>
         <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px;">
-          Select your role and name to view your active tasks and pending handoffs.
+          Manager: review the team queue. Editor: choose an editor to see their assignments.
         </p>
       </div>
 
       <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
         <div style="display: flex; gap: 0.25rem; background: var(--bg-subtle); padding: 0.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-          <button id="role-teacher-btn" type="button" class="btn btn-sm btn-primary" onclick="setMyRole('teacher')" style="padding: 0.35rem 0.75rem; font-size: 0.8125rem;">
-            Teacher
+          <button id="role-manager-btn" type="button" class="btn btn-sm btn-primary" onclick="setMyRole('manager')" style="padding: 0.35rem 0.75rem; font-size: 0.8125rem;">
+            Manager
           </button>
           <button id="role-editor-btn" type="button" class="btn btn-sm btn-secondary" onclick="setMyRole('editor')" style="padding: 0.35rem 0.75rem; font-size: 0.8125rem;">
             Editor
@@ -123,16 +123,18 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
   <script is:inline>
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-    let currentRole = 'teacher';
+    const isTrue = value => value === true || value === 1 || String(value).toLowerCase() === 'true';
+    let currentRole = 'manager';
     let currentPerson = '';
     let cachedVideos = [];
 
     function setMyRole(role) {
+      if(window.infinityIdentity?.role==='editor') role='editor';
       currentRole = role;
-      const teacherBtn = document.getElementById('role-teacher-btn');
+      const teacherBtn = document.getElementById('role-manager-btn');
       const editorBtn = document.getElementById('role-editor-btn');
 
-      if (role === 'teacher') {
+      if (role === 'manager') {
         teacherBtn.className = 'btn btn-sm btn-primary';
         editorBtn.className = 'btn btn-sm btn-secondary';
       } else {
@@ -152,10 +154,16 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
     function populatePersonDropdown() {
       const select = document.getElementById('my-person-select');
       if (!select) return;
+      select.hidden = currentRole === 'manager';
+      if (currentRole === 'manager') {
+        currentPerson = '';
+        select.value = '';
+        return;
+      }
 
       const people = new Set();
       cachedVideos.forEach(v => {
-        if (currentRole === 'teacher') {
+        if (currentRole === 'manager') {
           const name = String(v.talent || v.teacher || '').trim();
           if (name) people.add(name);
         } else {
@@ -165,6 +173,12 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       });
 
       const sorted = Array.from(people).sort();
+      if(window.infinityIdentity?.role==='editor') {
+        select.innerHTML=`<option>${esc(window.infinityIdentity.editor)}</option>`;
+        select.disabled=true;
+        currentPerson=window.infinityIdentity.editor;
+        return;
+      }
       const currentVal = select.value;
       select.innerHTML = `<option value="">Select your name…</option>` +
         sorted.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
@@ -180,17 +194,17 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
     function determineLevelAndAction(item) {
       const status = String(item.productionStatus || item.status || '').trim();
-      const isUploaded = Boolean(item.posted) || status === 'Uploaded';
+      const isUploaded = isTrue(item.posted) || status === 'Uploaded';
 
       if (isUploaded) return { level: 10, name: 'Uploaded', next: 'Completed', chip: 'chip-emerald' };
       if (status === 'Approved') return { level: 9, name: 'Approved', next: 'Confirm Upload', chip: 'chip-emerald' };
       if (status === 'Changes') return { level: 8, name: 'Changes Required', next: 'Fix changes & upload FINAL', chip: 'chip-red' };
-      if (status === 'QC Pending') return { level: 7, name: 'QC Pending', next: 'Wait for QC decision', chip: 'chip-purple' };
+      if (status === 'QC Pending') return { level: 7, name: 'QC Pending', next: currentRole === 'manager' ? 'Review FINAL and decide QC' : 'Wait for manager QC decision', chip: 'chip-purple' };
       if (status === 'Editing') return { level: 6, name: 'Editing', next: 'Edit & upload FINAL', chip: 'chip-amber' };
       if (item.editor && String(item.editor).trim()) return { level: 5, name: 'Editor Assigned', next: 'Start editing', chip: 'chip-blue' };
       if (item.rawFileUrl || status === 'Raw Ready') return { level: 4, name: 'RAW Uploaded', next: 'Wait for Editor Assignment', chip: 'chip-blue' };
       if (status === 'Recording') return { level: 3, name: 'Recording', next: 'Record and upload RAW file', chip: 'chip-amber' };
-      if (item.scriptReady || status === 'Script Ready') return { level: 2, name: 'Script Ready', next: 'Record video', chip: 'chip-blue' };
+      if (isTrue(item.scriptReady) || status === 'Script Ready') return { level: 2, name: 'Script Ready', next: 'Record video', chip: 'chip-blue' };
       return { level: 1, name: 'Script Created', next: 'Complete & approve script', chip: 'chip-default' };
     }
 
@@ -245,8 +259,9 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       const person = select ? select.value : currentPerson;
 
       const filtered = cachedVideos.filter(v => {
+        if (currentRole === 'manager') return true;
         if (!person) return false;
-        if (currentRole === 'teacher') {
+        if (currentRole === 'manager') {
           return String(v.talent || v.teacher || '').trim().toLowerCase() === person.toLowerCase();
         } else {
           return String(v.editor || '').trim().toLowerCase() === person.toLowerCase();
@@ -260,11 +275,11 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
 
       filtered.forEach(v => {
         const s = String(v.productionStatus || '').trim().toLowerCase();
-        if (v.posted || s === 'uploaded') completedCount++;
+        if (isTrue(v.posted) || s === 'uploaded') completedCount++;
         else {
           activeCount++;
           if (s === 'changes') urgentCount++;
-          if (currentRole === 'teacher' && (s === 'script pending' || s === 'script ready' || s === 'recording')) {
+          if (currentRole === 'manager' && ['qc pending','approved','script pending','raw ready'].includes(s)) {
             actionCount++;
           }
           if (currentRole === 'editor' && (s === 'editing' || s === 'changes')) {
@@ -288,7 +303,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           emptyBox.style.display = 'block';
           document.getElementById('my-work-empty-text').textContent = person
             ? `No tasks found for ${person}`
-            : 'Select your name above to view your tasks';
+            : currentRole === 'manager' ? 'No videos returned for the team queue' : 'Select an editor above to view assignments';
         }
       } else {
         if (emptyBox) emptyBox.style.display = 'none';
@@ -308,6 +323,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
                 </td>
                 <td style="font-weight: 500; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                   ${topic}
+                  ${(item.qcChangeNotes || item.qcNotes) ? `<div class="revision-note">Revision: ${esc(item.qcChangeNotes || item.qcNotes)}</div>` : ''}
                 </td>
                 <td><span class="chip ${priority.includes('P0') || priority.includes('P1') ? 'chip-red' : 'chip-default'}">${priority}</span></td>
                 <td><span class="chip ${chip}">${esc(name)}</span></td>
@@ -325,6 +341,16 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       }
     }
 
+    window.addEventListener('infinity:video-updated', event => {
+      cachedVideos = cachedVideos.map(v => v.videoId === event.detail.videoId ? {...v,...event.detail} : v);
+      renderMyWork();
+    });
+    window.addEventListener('infinity:identity',event=>{
+      if(event.detail.role==='editor') {
+        document.getElementById('role-manager-btn').hidden=true;
+        setMyRole('editor');
+      }
+    });
     document.addEventListener('DOMContentLoaded', () => {
       loadMyWorkData();
     });

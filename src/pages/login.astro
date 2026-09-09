@@ -12,7 +12,7 @@ import Layout from '../layouts/Layout.astro';
           </svg>
         </div>
         <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.02em;">Infinity Operations</h1>
-        <p style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem;">Enter shared access code to open dashboard</p>
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem;">Sign in with your login ID and password</p>
       </div>
 
       <div style="padding: 1.75rem 2rem 2rem;">
@@ -21,15 +21,16 @@ import Layout from '../layouts/Layout.astro';
         </div>
 
         <form id="login-form">
+          <label class="manager-field" style="margin-bottom:1rem;">Login ID<input id="login-username" autocomplete="username" placeholder="Your login ID" /><small>Manager setup: leave blank to use the existing access code.</small></label>
           <div style="margin-bottom: 1.25rem;">
-            <label for="access-code" style="display: block; font-size: 0.8125rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.5rem;">Access Code</label>
+            <label for="access-code" style="display: block; font-size: 0.8125rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.5rem;">Password / manager access code</label>
             <div style="position: relative;">
               <input
                 id="access-code"
                 type="password"
                 required
                 autocomplete="current-password"
-                placeholder="Enter access code"
+                placeholder="Enter password"
                 style="width: 100%; padding: 0.625rem 2.5rem 0.625rem 0.875rem; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font-size: 0.875rem; font-family: var(--font-mono); color: var(--text-main); background: #fff;"
               />
               <button
@@ -81,7 +82,7 @@ import Layout from '../layouts/Layout.astro';
     function getSafeRedirect() {
       const params = new URLSearchParams(window.location.search);
       const raw = params.get('redirect') || '/';
-      if (isLoginUrl(raw) || !raw.startsWith('/')) {
+      if (isLoginUrl(raw) || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) {
         return '/';
       }
       return raw;
@@ -164,7 +165,7 @@ import Layout from '../layouts/Layout.astro';
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accessCode: codeInput.value.trim() }),
+          body: JSON.stringify({ accessCode: codeInput.value.trim(), username:document.getElementById('login-username').value.trim(),password:codeInput.value }),
         });
 
         const data = await res.json().catch(() => ({}));
@@ -177,7 +178,8 @@ import Layout from '../layouts/Layout.astro';
         }
 
         // Authenticated successfully -> navigate once to target
-        const target = getSafeRedirect();
+        sessionStorage.clear();
+        const target = data.identity?.role === 'editor' ? '/my-work' : getSafeRedirect();
         window.location.replace(target);
       } catch (err) {
         if (errorBox && errorText) {

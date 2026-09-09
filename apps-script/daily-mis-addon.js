@@ -10,7 +10,7 @@ const INFINITY_MIS = {
   CC_KEY: 'MIS_CC_EMAILS',
   SEND_HOUR_KEY: 'MIS_SEND_HOUR',
   CUSTOM_NOTE_KEY: 'MIS_CUSTOM_NOTE',
-  DEFAULT_HOUR: 22,
+  DEFAULT_HOUR: 20,
   HANDLER: 'sendDailyCampaignMis'
 };
 
@@ -69,7 +69,7 @@ function getDailyMisSettings_(ss) {
     sendHour: Math.max(0, Math.min(23, Number(config[INFINITY_MIS.SEND_HOUR_KEY] || INFINITY_MIS.DEFAULT_HOUR))),
     customNote: String(config[INFINITY_MIS.CUSTOM_NOTE_KEY] || '').trim(),
     triggerEnabled: Boolean(trigger),
-    timezone: Session.getScriptTimeZone() || 'Asia/Kolkata',
+    timezone: 'Asia/Kolkata',
     remainingDailyQuota: MailApp.getRemainingDailyQuota()
   };
 }
@@ -81,7 +81,7 @@ function saveDailyMisSettings_(ss, body) {
   if (!Number.isInteger(sendHour) || sendHour < 0 || sendHour > 23) {
     throw new Error('MIS send hour must be a whole number from 0 to 23.');
   }
-  const customNote = String((body && body.customNote) || '').trim().slice(0, 1200);
+  const customNote = String((body && body.customNote) || '').trim().slice(0, 12000);
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -107,6 +107,10 @@ function misDateKey_(value, tz) {
   }
   const text = String(value || '').trim();
   if (!text) return '';
+  if (/T.*(?:Z|[+-]\d{2}:?\d{2})$/.test(text)) {
+    const instant = new Date(text);
+    return isNaN(instant.getTime()) ? '' : Utilities.formatDate(instant, tz, 'yyyy-MM-dd');
+  }
   let match = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(text);
   if (match) return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
   match = /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/.exec(text);
@@ -124,13 +128,13 @@ function misDateKey_(value, tz) {
 function buildDailyCampaignMisData_(ss) {
   const sheet = ss.getSheetByName('VIDEOS');
   if (!sheet) throw new Error('VIDEOS sheet not found.');
-  const tz = Session.getScriptTimeZone() || 'Asia/Kolkata';
+  const tz = 'Asia/Kolkata';
   const today = new Date();
   const todayKey = Utilities.formatDate(today, tz, 'yyyy-MM-dd');
   const values = sheet.getLastRow() < 2 ? [] : sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
   const h = misHeaders_(sheet);
   const get = (row, header) => h[header] === undefined ? '' : row[h[header]];
-  const rows = values.filter(row => String(get(row, 'Video ID') || '').trim() && get(row, 'Archived?') !== true);
+  const rows = values.filter(row => String(get(row, 'Video ID') || '').trim() && String(get(row, 'Archived?')).toLowerCase() !== 'true');
   const todayRows = rows.filter(row => misDateKey_(get(row, 'Publish Date'), tz) === todayKey);
   const statusCount = list => list.reduce((out, row) => {
     const status = String(get(row, 'Production Status') || 'Unassigned').trim() || 'Unassigned';
@@ -156,11 +160,29 @@ function buildDailyCampaignMisData_(ss) {
   const editingNow = Number(totalByStatus.Editing || 0) + Number(totalByStatus.Changes || 0);
   const stretch7 = Math.min(remaining, Math.max(expected7, editingNow + Number(totalByStatus['QC Pending'] || 0)));
 
+  const activity = opsActivity_(ss);
+  const channels = opsChannels_(ss);
+  const workload = Object.create(null);
+  rows.forEach(row => {
+    const editor = String(get(row,'Editor') || 'Unassigned');
+    const status = String(get(row,'Production Status') || 'Unassigned');
+    if (!workload[editor]) workload[editor] = {editor, editing:0, changes:0, qc:0, approved:0};
+    if(status==='Editing') workload[editor].editing++;
+    if(status==='Changes') workload[editor].changes++;
+    if(status==='QC Pending') workload[editor].qc++;
+    if(status==='Approved') workload[editor].approved++;
+  });
+  const exceptions = rows.filter(row => ['QC Pending','Changes'].includes(String(get(row,'Production Status'))) || String(get(row,'SLA Status')).toLowerCase().includes('overdue') || get(row,'Blocker')).map(row=>({
+    videoId:get(row,'Video ID'), editor:get(row,'Editor'), status:get(row,'Production Status'),
+    notes:get(row,'QC Change Notes'), blocker:get(row,'Blocker'), due:get(row,'Due At') instanceof Date ? Utilities.formatDate(get(row,'Due At'),tz,'dd MMM HH:mm') : get(row,'Due At')
+  }));
   return {
+    activity, channels, workload:Object.values(workload), exceptions,
+    attentionUnique: rows.filter(row=>String(get(row,'SLA Status')).toLowerCase().includes('overdue') || String(get(row,'Blocker') || '').trim()).length,
     generatedAt: Utilities.formatDate(today, tz, 'dd MMM yyyy, hh:mm a'),
     dateLabel: Utilities.formatDate(today, tz, 'dd MMM yyyy'),
     plannedToday: todayRows.length,
-    uploadedToday: Number(todayByStatus.Uploaded || 0),
+    uploadedToday: rows.filter(row => String(get(row,'Production Status'))==='Uploaded' && misDateKey_(get(row,'Stage Updated At'),tz)===todayKey).length,
     scriptsToday: Number(todayByStatus['Script Pending'] || 0) + Number(todayByStatus['Script Ready'] || 0),
     editingToday: Number(todayByStatus.Editing || 0),
     qcToday: Number(todayByStatus['QC Pending'] || 0),
@@ -185,29 +207,28 @@ function misMetricCard_(label, value, note, color) {
 
 function buildDailyCampaignMisHtml_(data, customNote) {
   const completion = data.totalVideos ? Math.round((data.uploadedTotal / data.totalVideos) * 100) : 0;
-  const todayCompletion = data.plannedToday ? Math.round((data.uploadedToday / data.plannedToday) * 100) : 0;
   const safeCustomNote = misEscapeHtml_(customNote).replace(/\n/g, '<br>');
   return `<!doctype html><html><body style="margin:0;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">
   <table role="presentation" width="680" cellpadding="0" cellspacing="0" style="width:100%;max-width:680px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 8px 30px rgba(15,23,42,.08)">
     <tr><td style="padding:26px 28px;background:linear-gradient(120deg,#831843,#db2777);color:#fff">
       <div style="font-size:11px;letter-spacing:.14em;font-weight:800;opacity:.8">INFINITY OPERATIONS · DAILY MIS</div>
-      <h1 style="font-size:24px;line-height:1.2;margin:7px 0 4px">Campaign Production Report</h1>
+      <h1 style="font-size:24px;line-height:1.2;margin:7px 0 4px">Daily Operational Governance &amp; Distribution Review</h1>
       <div style="font-size:13px;opacity:.82">${data.dateLabel} · Generated ${data.generatedAt}</div>
     </td></tr>
     <tr><td style="padding:22px 22px 10px">
       <div style="font-size:14px;font-weight:800;margin:0 6px 8px">Today at a glance</div>
       <table role="presentation" width="100%"><tr>
         ${misMetricCard_('Planned', data.plannedToday, 'Scheduled today', '#2563eb')}
-        ${misMetricCard_('Uploaded', data.uploadedToday, `${todayCompletion}% of today`, '#059669')}
+        ${misMetricCard_('Uploaded', data.uploadedToday, 'Upload-stage timestamp today', '#059669')}
         ${misMetricCard_('Active Moves', data.activityToday, 'Stage updates today', '#7c3aed')}
-        ${misMetricCard_('Attention', data.overdue + data.blocked, `${data.overdue} overdue · ${data.blocked} blocked`, '#dc2626')}
+        ${misMetricCard_('Attention', data.attentionUnique, `${data.overdue} overdue · ${data.blocked} blocked; may overlap`, '#dc2626')}
       </tr></table>
     </td></tr>
     <tr><td style="padding:10px 28px 18px">
       <div style="font-size:14px;font-weight:800;margin-bottom:10px">Production pipeline</div>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
-        <tr style="background:#f8fafc;color:#64748b;font-size:11px;text-transform:uppercase"><th align="left" style="padding:10px">Stage</th><th style="padding:10px">Today</th><th style="padding:10px">Campaign</th></tr>
+        <tr style="background:#f8fafc;color:#64748b;font-size:11px;text-transform:uppercase"><th align="left" style="padding:10px">Stage</th><th style="padding:10px">Scheduled today</th><th style="padding:10px">Campaign</th></tr>
         ${['Script Pending','Script Ready','Editing','QC Pending','Changes','Approved','Uploaded'].map(status => `<tr><td style="padding:9px 10px;border-top:1px solid #e2e8f0;font-size:13px;font-weight:700">${status}</td><td align="center" style="padding:9px;border-top:1px solid #e2e8f0">${data.todayByStatus[status] || 0}</td><td align="center" style="padding:9px;border-top:1px solid #e2e8f0">${data.totalByStatus[status] || 0}</td></tr>`).join('')}
       </table>
     </td></tr>
@@ -221,18 +242,26 @@ function buildDailyCampaignMisHtml_(data, customNote) {
       </tr></table>
       <p style="font-size:11px;line-height:1.5;color:#64748b;margin:10px 6px 0">Projection is computed from the last 7 days’ completed uploads and current Editing/QC inventory. It is a planning estimate, not a guaranteed commitment.</p>
     </td></tr>
-    ${safeCustomNote ? `<tr><td style="padding:0 28px 20px"><div style="padding:14px;border:1px solid #fbcfe8;border-radius:12px;background:#fff7fb;font-size:12px;line-height:1.55;color:#831843"><strong>Management note</strong><br>${safeCustomNote}</div></td></tr>` : ''}
+    ${misDetailedSections_(data)}
+    ${safeCustomNote ? `<tr><td style="padding:0 28px 20px"><div style="padding:14px;border:1px solid #fbcfe8;border-radius:12px;background:#fff7fb;font-size:12px;line-height:1.55;color:#831843"><strong>Management commentary</strong><br>${safeCustomNote}</div></td></tr>` : ''}
     <tr><td style="padding:16px 28px;background:#fff1f2;color:#9f1239;font-size:12px;line-height:1.5"><strong>Manager focus:</strong> Clear ${data.overdue} overdue and ${data.blocked} blocked item(s); protect the next expected delivery window.</td></tr>
   </table></td></tr></table></body></html>`;
 }
 
 function sendDailyCampaignMis(options) {
   options = options || {};
+  const automatic = !options.test;
+  const deliveryLock = LockService.getScriptLock();
+  if (automatic && !deliveryLock.tryLock(1000)) return {ok:false, skipped:true, reason:'Another send is in progress'};
+  try {
   const ss = misSpreadsheet_();
   const config = misConfig_(ss);
   const recipients = misNormalizeEmails_(config[INFINITY_MIS.RECIPIENT_KEY], true);
   const cc = misNormalizeEmails_(config[INFINITY_MIS.CC_KEY], false);
   const data = buildDailyCampaignMisData_(ss);
+  const sentKey = 'INFINITY_MIS_SENT_' + opsDay_(new Date());
+  const properties = PropertiesService.getScriptProperties();
+  if (automatic && properties.getProperty(sentKey)) return {ok:true, skipped:true, reason:'Already sent today'};
   const subject = `${options.test ? '[TEST] ' : ''}Infinity Daily MIS · ${data.dateLabel} · ${data.uploadedToday}/${data.plannedToday} uploaded`;
   MailApp.sendEmail({
     to: recipients,
@@ -242,7 +271,9 @@ function sendDailyCampaignMis(options) {
     htmlBody: buildDailyCampaignMisHtml_(data, config[INFINITY_MIS.CUSTOM_NOTE_KEY]),
     name: 'Infinity Operations'
   });
+  if (automatic) properties.setProperty(sentKey,new Date().toISOString());
   return { ok: true, test: Boolean(options.test), recipients, cc, subject, data };
+  } finally {if(automatic) deliveryLock.releaseLock();}
 }
 
 function setupDailyMisTrigger() {
@@ -250,8 +281,8 @@ function setupDailyMisTrigger() {
   const config = misConfig_(ss);
   const hour = Math.max(0, Math.min(23, Number(config[INFINITY_MIS.SEND_HOUR_KEY] || INFINITY_MIS.DEFAULT_HOUR)));
   ScriptApp.getProjectTriggers().filter(trigger => trigger.getHandlerFunction() === INFINITY_MIS.HANDLER).forEach(trigger => ScriptApp.deleteTrigger(trigger));
-  ScriptApp.newTrigger(INFINITY_MIS.HANDLER).timeBased().everyDays(1).atHour(hour).create();
-  return { ok: true, handler: INFINITY_MIS.HANDLER, hour, timezone: Session.getScriptTimeZone() };
+  ScriptApp.newTrigger(INFINITY_MIS.HANDLER).timeBased().everyDays(1).atHour(hour).inTimezone('Asia/Kolkata').create();
+  return { ok: true, handler: INFINITY_MIS.HANDLER, hour, timezone: 'Asia/Kolkata' };
 }
 
 function sendDailyCampaignMisTest() {

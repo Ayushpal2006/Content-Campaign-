@@ -357,7 +357,7 @@
     if (postUrlEl) postUrlEl.value = safeVal(obj.postUrl) === '—' ? '' : safeVal(obj.postUrl);
     renderOperationalAlert({ status, qcChangeNotes, blocker, lastErrorAt, sla });
     currentDrawerVideoObj = obj;
-    loadEditorOptions(editor).then(() => renderWhatsappHandoffs(obj));
+    if(window.infinityIdentity?.role!=='editor') loadEditorOptions(editor).then(() => renderWhatsappHandoffs(obj));
     updateManagerActionState(obj);
     renderMissionProgress(obj);
     renderRevisionHistory(obj);
@@ -681,6 +681,10 @@
   }
 
   function updateManagerActionState(obj) {
+    const editorOnly=window.infinityIdentity?.role==='editor';
+    ['save-script-btn','approve-script-btn','assign-editor-btn','detect-raw-btn','qc-changes-btn','qc-approve-btn','mark-uploaded-btn'].forEach(id=>{
+      const button=document.getElementById(id);if(button) button.hidden=editorOnly;
+    });
     const status = String(obj.productionStatus || '').trim();
     const hasRaw = Boolean(obj.rawFileUrl);
     const posted = Boolean(obj.posted) || status === 'Uploaded';
@@ -723,7 +727,7 @@
     if (badge) badge.textContent = isChanges ? 'Changes' : blocker !== '—' ? 'Blocked' : isOverdue ? 'Overdue' : 'Error';
     if (text) text.textContent = instruction || (isOverdue ? `This video is ${sla}. Open the row and move the pending step forward.` : `The last workflow error was recorded at ${lastErrorAt}.`);
     if (help) help.textContent = isChanges
-      ? 'Editor: follow this instruction, upload a new file in the FINAL folder, then manager runs Detect FINAL for a fresh QC revision.'
+      ? 'Editor: follow these notes, upload the revision into the FINAL folder, then use Detect FINAL to submit it for manager QC.'
       : 'Resolve the message above in the Sheet or this drawer, then press Refresh to confirm the workflow recovered.';
   }
 
@@ -801,7 +805,12 @@
       if (isCurrent() && actionButton) actionButton.textContent = options.successLabel || 'Completed ✓';
       if (isCurrent()) finishManagerActionProgress(successMessage, true);
       showToast(successMessage, 'success');
-      if (isCurrent()) await openVideoDrawer(videoId);
+      const updatedVideo = (data.result || data.data || data).video;
+      if (updatedVideo?.videoId === videoId) {
+        videoDetailCache.set(videoId, {data:updatedVideo,savedAt:Date.now()});
+        window.dispatchEvent(new CustomEvent('infinity:video-updated',{detail:updatedVideo}));
+        if (isCurrent()) populateVideoDrawer(updatedVideo,videoId);
+      } else if (isCurrent()) await openVideoDrawer(videoId);
       if (typeof window.__refreshOperationsData === 'function') window.__refreshOperationsData();
       return data;
     } catch (error) {
@@ -852,7 +861,12 @@
           if (isCurrent() && actionButton) actionButton.textContent = options.successLabel || 'Completed ✓';
           if (isCurrent() && box) { box.style.background='#f0fdf4'; box.style.color='#15803d'; box.textContent=successMessage; }
           if (isCurrent()) finishManagerActionProgress(successMessage, true); showToast(successMessage, 'success');
-          if (isCurrent()) await openVideoDrawer(videoId);
+          const updatedVideo = job.result?.video;
+          if (updatedVideo?.videoId === videoId) {
+            videoDetailCache.set(videoId,{data:updatedVideo,savedAt:Date.now()});
+            window.dispatchEvent(new CustomEvent('infinity:video-updated',{detail:updatedVideo}));
+            if (isCurrent()) populateVideoDrawer(updatedVideo,videoId);
+          } else if (isCurrent()) await openVideoDrawer(videoId);
           if (typeof window.__refreshOperationsData === 'function') window.__refreshOperationsData();
           return job;
         }

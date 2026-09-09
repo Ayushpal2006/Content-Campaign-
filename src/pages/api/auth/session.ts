@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getSessionSecret, verifySessionCookie } from '../../../lib/server/auth';
+import { getSessionSecret, readSessionIdentity } from '../../../lib/server/auth';
 import { getRuntimeEnv } from '../../../lib/server/runtime-env';
 
 export const GET: APIRoute = async (context) => {
@@ -18,10 +18,10 @@ export const GET: APIRoute = async (context) => {
       }
     );
   }
-  const isValid = await verifySessionCookie(request, sessionSecret);
+  const identity = await readSessionIdentity(request, sessionSecret);
 
   return new Response(
-    JSON.stringify({ authenticated: isValid }),
+    JSON.stringify({ authenticated: Boolean(identity), identity }),
     {
       status: 200,
       headers: {

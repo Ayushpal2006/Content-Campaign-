@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createSessionCookie, getAppAccessCode, getSessionSecret } from '../../../lib/server/auth';
 import { getRuntimeEnv } from '../../../lib/server/runtime-env';
+import { loginUser } from '../../../lib/server/user-login';
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
@@ -37,11 +38,22 @@ export const POST: APIRoute = async (context) => {
   }
 
   try {
-    const body = (await request.json().catch(() => ({}))) as { accessCode?: unknown };
+    const body = (await request.json().catch(() => ({}))) as { accessCode?: unknown; username?:unknown; password?:unknown };
     const accessCode = typeof body.accessCode === 'string' ? body.accessCode.trim() : '';
 
     const expectedCode = getAppAccessCode(runtimeEnv);
     const sessionSecret = getSessionSecret(runtimeEnv);
+    const username=typeof body.username==='string' ? body.username.trim().toLowerCase() : '';
+    if(username) {
+      if(!sessionSecret) return Response.json({ok:false,error:'SESSION_SECRET is not configured.'},{status:503});
+      const password=typeof body.password==='string'?body.password:'';
+      if(!password || username.length>100 || password.length>256) return Response.json({ok:false,error:'Invalid login ID or password.'},{status:401});
+      const identity=await loginUser(username,password,String(runtimeEnv.APPS_SCRIPT_API_URL || ''),String(runtimeEnv.INFINITY_API_TOKEN || ''));
+      if(!identity) return Response.json({ok:false,error:'Invalid login ID or password.'},{status:401});
+      const {cookie}=await createSessionCookie(sessionSecret,request,3600,identity);
+      return Response.json({ok:true,identity},{headers:{'Set-Cookie':cookie,'Cache-Control':'no-store'}});
+    }
+    if(runtimeEnv.INFINITY_DISABLE_SHARED_LOGIN==='true') return Response.json({ok:false,error:'Use your individual login ID and password.'},{status:401});
 
     if (!expectedCode) {
       return new Response(

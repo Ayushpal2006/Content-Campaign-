@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getSessionSecret, verifySessionCookie } from '../../lib/server/auth';
+import { getSessionSecret, readSessionIdentity } from '../../lib/server/auth';
 import {
   createReadCacheKey,
   getCachedResponse,
@@ -42,6 +42,12 @@ function jsonError(message: string, status: number, code: string): Response {
 }
 
 const ALLOWED_ACTIONS = new Set([
+  'record_ui_activity',
+  'activity_today',
+  'channels',
+  'save_post',
+  'save_channel_metrics',
+  'mis_preview',
   'bootstrap',
   'dashboard',
   'videos',
@@ -100,7 +106,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   // 1. Session verification
-  const isAuthorized = await verifySessionCookie(request, sessionSecret);
+  const isAuthorized = await readSessionIdentity(request, sessionSecret);
   if (!isAuthorized) {
     return new Response(
       JSON.stringify({ ok: false, error: 'Unauthorized session. Please log in.' }),
@@ -125,7 +131,13 @@ export const POST: APIRoute = async (context) => {
     );
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return jsonError('Request body must be an object.',400,'INVALID_BODY');
   const action = typeof body.action === 'string' ? body.action.trim() : '';
+  // Identity always comes from the signed server session, never browser fields.
+  body.actor=isAuthorized;
+  if(isAuthorized.role==='editor' && !['bootstrap','videos','video','detect_final','record_ui_activity'].includes(action)) {
+    return jsonError('Only a manager can perform this action.',403,'ROLE_FORBIDDEN');
+  }
   if (!action || !ALLOWED_ACTIONS.has(action)) {
     return new Response(
       JSON.stringify({ ok: false, error: `Unsupported or missing action: ${action || 'none'}` }),
@@ -137,7 +149,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   const cacheTtl = readCacheSeconds(getEnv('INFINITY_READ_CACHE_SECONDS'));
-  const canUseReadCache = isReadAction(action) && body.refresh !== true && cacheTtl > 0;
+  const canUseReadCache = isAuthorized.role !== 'editor' && isReadAction(action) && body.refresh !== true && cacheTtl > 0;
   const cacheKey = canUseReadCache
     ? await createReadCacheKey(request, { ...body, action })
     : null;
@@ -259,7 +271,7 @@ export const POST: APIRoute = async (context) => {
 
         if (cacheKey && upstreamSucceeded) {
           await putCachedResponse(cacheKey, upstreamResult.clone(), cacheTtl);
-        } else if (!isReadAction(action) && upstreamSucceeded) {
+        } else if (!isReadAction(action) && action!=='record_ui_activity' && upstreamSucceeded) {
           await purgeRelatedReadCaches(request, { ...body, action });
         }
 
@@ -276,7 +288,7 @@ export const POST: APIRoute = async (context) => {
 
   // Mock data must be an explicit local-development choice. Never silently
   // report fake success when production configuration or Google is unavailable.
-  if (getEnv('INFINITY_USE_MOCKS') !== 'true') {
+  if (getEnv('INFINITY_USE_MOCKS') !== 'true' || isAuthorized.role === 'editor') {
     return jsonError(
       'Operations backend is not configured. Set APPS_SCRIPT_API_URL and INFINITY_API_TOKEN.',
       503,

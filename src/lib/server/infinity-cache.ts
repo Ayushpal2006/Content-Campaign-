@@ -1,6 +1,9 @@
 const DEFAULT_READ_CACHE_SECONDS = 30;
 
 const READ_ACTIONS = new Set([
+  'activity_today',
+  'channels',
+  'mis_preview',
   'bootstrap',
   'dashboard',
   'videos',

@@ -10,23 +10,11 @@ import Layout from '../layouts/Layout.astro';
 
   <div id="mis-content" style="display:none;gap:1rem;flex-direction:column;">
     <div class="card" style="padding:1rem 1.2rem;display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap;">
-      <div><div class="today-eyebrow" style="color:var(--brand-700);">DAILY MANAGEMENT REPORT</div><h2 style="font-size:1.05rem;margin-top:.15rem;">Review before sending</h2><p style="font-size:.78rem;color:var(--text-muted);margin-top:.2rem;">Actual production data in a clear management format.</p></div>
+      <div><div class="today-eyebrow" style="color:var(--brand-700);">DAILY MANAGEMENT REPORT</div><h2 style="font-size:1.05rem;margin-top:.15rem;">Review before sending</h2><p style="font-size:.78rem;color:var(--text-muted);margin-top:.2rem;">Detailed corporate report: operational evidence, QC, editorial capacity, distribution and audience observations.</p></div>
       <span class="chip chip-emerald">HTML email preview</span>
     </div>
 
-    <div class="mis-preview-shell">
-      <div class="mis-email-head"><span>INFINITY OPERATIONS · DAILY MIS</span><h1>Campaign Production Report</h1><p id="mis-date">—</p></div>
-      <div class="mis-email-body">
-        <div id="mis-executive-summary" class="mis-custom-note-preview" style="display:block;margin-bottom:1rem;"></div>
-        <h3>Today at a glance</h3>
-        <div id="mis-metrics" class="mis-metrics"></div>
-        <h3>Production pipeline</h3>
-        <div class="table-container"><table class="compact-table"><thead><tr><th>Stage</th><th>Today</th><th>Campaign</th></tr></thead><tbody id="mis-pipeline"></tbody></table></div>
-        <div class="mis-projection-note"><strong>Projection:</strong> The scheduled email calculates conservative, expected and stretch delivery from real 7-day uploaded velocity and current Editing/QC inventory.</div>
-        <div id="mis-custom-note-preview" class="mis-custom-note-preview" style="display:none;"></div>
-      </div>
-      <div id="mis-focus" class="mis-email-focus">Manager focus will appear here.</div>
-    </div>
+    <iframe id="mis-email-preview" title="Daily operational governance email preview" sandbox="" style="width:100%;height:1800px;border:1px solid var(--border-subtle);border-radius:1rem;background:white;"></iframe>
 
     <section class="card mis-settings-card" aria-labelledby="mis-settings-title">
       <div class="mis-settings-head">
@@ -46,7 +34,7 @@ import Layout from '../layouts/Layout.astro';
           <input id="mis-cc" type="text" inputmode="email" autocomplete="off" placeholder="optional@example.com" />
         </label>
         <label class="manager-field">Daily send hour
-          <input id="mis-send-hour" type="number" min="0" max="23" step="1" value="22" />
+          <input id="mis-send-hour" type="number" min="0" max="23" step="1" value="20" />
         </label>
         <div class="mis-setting-meta">
           <strong id="mis-timezone">Asia/Kolkata</strong>
@@ -54,7 +42,7 @@ import Layout from '../layouts/Layout.astro';
           <small>Apps Script sends within the selected hourly window, not at an exact minute.</small>
         </div>
         <label class="manager-field mis-field-full">Management note (optional)
-          <textarea id="mis-custom-note" rows="4" maxlength="1200" placeholder="Add today’s context, risks or management ask. This appears inside the email."></textarea>
+          <textarea id="mis-custom-note" rows="4" maxlength="12000" placeholder="Add today’s context, risks or management ask. This appears inside the email."></textarea>
         </label>
       </div>
       <div class="mis-settings-actions">
@@ -81,51 +69,17 @@ import Layout from '../layouts/Layout.astro';
       const loading = document.getElementById('mis-loading');
       const content = document.getElementById('mis-content');
       const error = document.getElementById('mis-error');
-      const cached = window.infinitySnapshotCache?.get('dashboard');
-      if (cached) {
-        renderMis(cached.data);
-        loading.style.display = 'none'; content.style.display = 'flex';
-      }
+      content.style.display = 'flex';
       try {
-        const res = await fetch('/api/infinity', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'snapshot',resource:'dashboard'}) });
-        const raw = await res.json().catch(() => ({}));
-        if (!res.ok || raw.ok === false) throw new Error(apiError(raw, 'Could not load MIS data'));
-        const snapshot = window.infinitySnapshotCache?.unwrap(raw) || { data: raw };
-        const data = snapshot.data?.result || snapshot.data?.data || snapshot.data;
-        renderMis(data);
-        window.infinitySnapshotCache?.set('dashboard', data, snapshot.generatedAt);
-        loading.style.display = 'none'; content.style.display = 'flex';
+        const preview = await misApi('mis_preview', {refresh:true});
+        if (typeof preview.html !== 'string') throw new Error('Deploy the updated Apps Script to enable the detailed report preview.');
+        document.getElementById('mis-email-preview').srcdoc = preview.html;
+        error.style.display = 'none';
+        document.getElementById('last-updated-text').textContent = 'Report refreshed';
       } catch (e) {
-        loading.style.display = 'none';
-        if (!cached) { error.style.display = 'block'; error.textContent = e.message || 'Could not load MIS data'; }
-        else window.showToast?.('Fresh MIS data unavailable. Showing the last snapshot.', 'error');
-      }
-    }
-
-    function renderMis(data) {
-      const today = data.todayByStatus || {};
-      const all = data.byStatus || {};
-      const planned = Number(data.plannedToday || data.todayTotal || 0);
-      const uploaded = Number(today.Uploaded || data.todayUploaded || 0);
-      const overdue = Number(data.overdue || 0);
-      const blocked = Number(data.blocked || 0);
-      const completionRate = planned > 0 ? Math.round((uploaded / planned) * 100) : 0;
-      const pendingToday = Math.max(0, planned - uploaded);
-      document.getElementById('mis-date').textContent = new Date().toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'});
-      const metrics = [
-        ['Planned', planned, 'Scheduled today'],
-        ['Uploaded', uploaded, planned ? `${Math.round(uploaded/planned*100)}% of today` : 'No plan yet'],
-        ['Editing', Number(today.Editing || 0), 'Today pipeline'],
-        ['Attention', overdue + blocked, `${overdue} overdue · ${blocked} blocked`]
-      ];
-      document.getElementById('mis-metrics').innerHTML = metrics.map(([label,value,note]) => `<div class="mis-metric"><span>${label}</span><strong>${value}</strong><small>${note}</small></div>`).join('');
-      document.getElementById('mis-executive-summary').textContent = planned
-        ? `Executive summary: ${uploaded} of ${planned} planned videos are uploaded (${completionRate}%). ${pendingToday} remain in today’s workflow. Current attention queue: ${overdue} overdue and ${blocked} blocked.`
-        : `Executive summary: No videos are currently classified in today’s plan. Campaign pipeline data is shown below.`;
-      const stages = ['Script Pending','Script Ready','Editing','QC Pending','Changes','Approved','Uploaded'];
-      document.getElementById('mis-pipeline').innerHTML = stages.map(stage => `<tr><td style="font-weight:700">${stage}</td><td>${Number(today[stage] || 0)}</td><td>${Number(all[stage] || 0)}</td></tr>`).join('');
-      document.getElementById('mis-focus').innerHTML = `<strong>Manager focus:</strong> Clear ${overdue} overdue and ${blocked} blocked item(s); protect the next delivery window.`;
-      const last = document.getElementById('last-updated-text'); if (last) last.textContent = 'MIS refreshed just now';
+        error.style.display = 'block';
+        error.textContent = (e.message || 'Could not load report') + ' — Report requires the matching Apps Script release.';
+      } finally { loading.style.display = 'none'; }
     }
 
     function apiError(raw, fallback) {
@@ -147,7 +101,7 @@ import Layout from '../layouts/Layout.astro';
     function renderMisSettings(settings) {
       document.getElementById('mis-recipients').value = settings.recipients || '';
       document.getElementById('mis-cc').value = settings.cc || '';
-      document.getElementById('mis-send-hour').value = Number.isFinite(Number(settings.sendHour)) ? String(settings.sendHour) : '22';
+      document.getElementById('mis-send-hour').value = Number.isFinite(Number(settings.sendHour)) ? String(settings.sendHour) : '20';
       document.getElementById('mis-custom-note').value = settings.customNote || '';
       document.getElementById('mis-timezone').textContent = settings.timezone || 'Asia/Kolkata';
       document.getElementById('mis-quota').textContent = `Mail quota remaining today: ${settings.remainingDailyQuota ?? '—'}`;
@@ -219,11 +173,15 @@ import Layout from '../layouts/Layout.astro';
       }
     }
 
+    let noteTimer;
     function updateCustomNotePreview() {
-      const preview = document.getElementById('mis-custom-note-preview');
-      const note = document.getElementById('mis-custom-note')?.value.trim() || '';
-      preview.style.display = note ? 'block' : 'none';
-      preview.textContent = note ? `Management note: ${note}` : '';
+      clearTimeout(noteTimer);
+      noteTimer = setTimeout(async () => {
+        try {
+          const preview = await misApi('mis_preview', {customNote: document.getElementById('mis-custom-note').value, refresh:true});
+          if (preview.html) document.getElementById('mis-email-preview').srcdoc = preview.html;
+        } catch (error) { window.showToast?.(error.message, 'error'); }
+      }, 1200);
     }
 
     window.__refreshOperationsData = loadMis;

@@ -1,199 +1,112 @@
-# Infinity Operations Dashboard
+# Infinity Operations
 
-Fast, responsive, and secure internal operations dashboard for video production pipelines, built with **Astro**, **TypeScript**, and **Cloudflare Pages Functions**.
+Internal video operations app. Google Sheets remains the source of truth; Google Apps Script performs workflow writes and the Astro app is the fast, role-aware interface.
 
----
+## What this release changes
 
-## 🏛️ Architecture
+- Instant per-video QC state and revision-note updates in the UI.
+- Parallel actions across different videos, with backend de-duplication for the same video.
+- Manager and Editor workspaces. Editors receive only their own assigned records from Apps Script and cannot approve QC.
+- Individual user login support backed by a hidden `USERS` Sheet tab. The shared access code remains a manager fallback until explicitly disabled.
+- A truthful, detailed daily MIS, activity evidence, manual Instagram publication/metrics tracking, and a 20:00 Asia/Kolkata default schedule.
+- A mobile-friendly `START HERE` Sheet tab and a visible `ACCOUNTS` tab for channel setup.
 
+`operations-v4` is a **code release** until both the Apps Script and Cloudflare Worker are deployed. The app cannot make an older Apps Script deployment expose these new actions.
+
+## Architecture
+
+```text
+Browser → Cloudflare Worker → Google Apps Script → Google Sheet / Drive
 ```
-Browser (Astro Client / Vanilla TypeScript)
-   ↓ (same-origin secure requests)
-Cloudflare Pages Functions (/api/* Proxy)
-   ↓ (attaches INFINITY_API_TOKEN & verifies HMAC session)
-Google Apps Script Web App (APPS_SCRIPT_API_URL)
-   ↓
-Google Sheet & Google Drive
-```
 
-### Key Architectural Tenets
-1. **Zero Client Secret Exposure**: `APPS_SCRIPT_API_URL` and `INFINITY_API_TOKEN` are stored exclusively in Cloudflare Pages environment secrets and never bundled into client JavaScript.
-2. **Session Security**: Session tokens are signed using HMAC-SHA256 with `SESSION_SECRET` via the Web Crypto API, transmitted via `HttpOnly`, `Secure`, `SameSite=Strict` cookies.
-3. **Strict Action Allowlist**: Only the documented read and manager workflow actions are proxied. Unknown actions are rejected before reaching Apps Script.
-4. **Data Normalization & Resilience**: An adapter layer normalizes responses, ensuring that missing or null fields render safely as `"—"` without fabricating data.
+Secrets stay in Cloudflare/local `.dev.vars`; browser code never receives the Apps Script token.
 
----
+## Local run
 
-## 🔑 Environment Variables & Secrets
+Use a fresh folder if your earlier checkout has uncommitted changes:
 
-Configure the following secrets in Cloudflare Pages Dashboard (**Settings → Environment variables**) or locally in `.dev.vars`:
-
-| Variable Name | Purpose | Description |
-|---|---|---|
-| `APPS_SCRIPT_API_URL` | Upstream Backend | Permanent URL of the Google Apps Script Web App deployment |
-| `INFINITY_API_TOKEN` | Upstream Secret | Secret API token passed to Google Apps Script |
-| `APP_ACCESS_CODE` | Authentication | Shared access code entered by operators at `/login` |
-| `SESSION_SECRET` | Cookie Signing | Long random secret string (32+ chars) for HMAC-SHA256 cookie signing |
-
-> **Note**: Never commit `.dev.vars` or `.env` files to git. Template file is provided in `.dev.vars.example`.
-
----
-
-## 🚀 Local Development & Setup
-
-### 1. Install Dependencies
 ```bash
-npm install
-```
-
-### 2. Configure Local Secrets
-Copy the template and set your values:
-```bash
+git clone --branch codex/operations-v4 --single-branch https://github.com/Ayushpal2006/Content-Campaign-.git ~/Code/Content_campaign_v4
+cd ~/Code/Content_campaign_v4
 cp .dev.vars.example .dev.vars
-# Edit .dev.vars with your actual APPS_SCRIPT_API_URL, INFINITY_API_TOKEN, etc.
-```
-
-### 3. Run Type Checking
-```bash
-npm run check
-```
-
-### 4. Build Production Bundle
-```bash
-npm run build
-```
-
-### 5. Run Local Cloudflare Pages Emulation (Full Proxy & Functions Support)
-```bash
-npm run dev:pages
-```
-The application will be live at `http://localhost:8788`.
-
-### 6. Run Automated Test Suite
-With the local pages dev server running:
-```bash
-node test-suite.js
-```
-
----
-
-## ⚡ Deployment to Cloudflare Pages
-
-Operational recovery, Apps Script activation order, and the QC Changes workflow are documented in [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md).
-
-### Option A: Direct CLI Deployment via Wrangler
-1. Authenticate with Cloudflare:
-   ```bash
-   npx wrangler login
-   ```
-2. Deploy the built static assets and Pages Functions:
-   ```bash
-   npm run build
-   npm run deploy
-   ```
-3. Set the secrets on Cloudflare Pages:
-   ```bash
-   npx wrangler pages secret put APPS_SCRIPT_API_URL --project-name infinity-operations
-   npx wrangler pages secret put INFINITY_API_TOKEN --project-name infinity-operations
-   npx wrangler pages secret put APP_ACCESS_CODE --project-name infinity-operations
-   npx wrangler pages secret put SESSION_SECRET --project-name infinity-operations
-   ```
-
-### Option B: Cloudflare Git Integration (Continuous Deployment)
-1. In the [Cloudflare Dashboard](https://dash.cloudflare.com/), go to **Workers & Pages** → **Create application** → **Pages** → **Connect to Git**.
-2. Select the `Content-Campaign-` repository.
-3. Configure Build Settings:
-   - **Framework preset**: `Astro`
-   - **Build command**: `npm run build`
-   - **Build output directory**: `dist`
-4. Add the 4 environment variables under **Settings → Environment variables**.
-5. Click **Save and Deploy**.
-
----
-
-## 📡 Supported API Actions
-
-All requests to `/api/infinity` forward only the following exact actions to the Google Apps Script Web App:
-
-* `bootstrap`: Initial payload with pipeline configuration and metadata.
-* `dashboard`: Returns high-level KPI values, action queue, and status breakdown.
-* `videos`: Returns all video records for table listing, filtering, and search.
-* `video`: Returns detailed fields for a specific video ID (`videoId`).
-* `editor_load`: Returns editor workload, capacity, and active task distribution.
-* `detect_raw`: Triggers asynchronous Google Drive RAW file detection for a given `videoId`.
-* `create_video`: Creates a Script Pending video row.
-* `update_script`: Saves manager script, teacher, priority, and publish-date edits before production starts.
-* `approve_script`: Marks the script ready and asks the existing backend workflow to create/reuse Drive folders.
-* `assign_editor`: Assigns or reassigns an active editor through the existing load rules.
-* `detect_final`: Checks only the selected video's FINAL folder and moves it to QC Pending when a new file exists.
-* `qc_approve`: Approves the current FINAL revision.
-* `qc_changes`: Requests changes; non-empty QC notes are required.
-* `mark_uploaded`: Records account and post URL after QC approval.
-* `mis_config`: Reads Daily MIS recipients, note, send-hour window, trigger status, and remaining mail quota.
-* `save_mis_config`: Validates and saves editable Daily MIS delivery settings in Sheet CONFIG.
-* `send_mis_test`: Sends an explicit `[TEST]` MIS using the saved settings without enabling automation.
-* `setup_mis_trigger`: Creates or safely replaces the single Daily MIS schedule.
-
-Read-heavy dashboard actions use a 60-second Apps Script cache. Every successful manager write invalidates that cache, so the UI avoids repeated full-sheet reads without showing stale workflow changes.
-
-## Apps Script activation
-
-The complete manager API add-on is also kept in `apps-script/manager-api-addon.js` for review. The canonical Google Doc contains the integrated complete source. A Google Doc edit does **not** update the live bound Apps Script project automatically:
-
-1. Copy the complete latest canonical source into the bound Apps Script `Code.gs` and save it.
-2. Do **not** run `setupAllInfinityOperations()` for this update.
-3. Deploy the web app as a new version while keeping the existing execute/access settings.
-4. Keep the same `APPS_SCRIPT_API_URL` when updating the existing deployment.
-
-### Content workflow and Daily MIS add-ons
-
-- `apps-script/manager-api-addon.js` maps UI-facing `Teacher` to the existing `Talent` Sheet column, and `Editor Brief` to the existing `Recording Notes` column. Run `setupInfinityContentFields()` once only if the `Video Type` column is missing.
-- `apps-script/daily-mis-addon.js` builds a truthful HTML email from VIDEOS statuses and timestamps. It does not invent completions.
-- The app's **Daily MIS** page can edit To/CC, an optional management note, and the 0–23 delivery window; settings remain in the Sheet rather than frontend source.
-- Add these CONFIG rows before enabling email delivery:
-  - `MIS_RECIPIENT_EMAILS`: comma-separated recipient emails
-  - `MIS_CC_EMAILS`: optional comma-separated CC emails
-  - `MIS_SEND_HOUR`: 0–23 in the Apps Script project timezone (recommended `22`)
-- Run `sendDailyCampaignMis()` once and review the email. Then run `setupDailyMisTrigger()` once. Do not run `setupAllInfinityOperations()` for this update.
-
-### Manager access and deployment
-
-Managers use the same deployed Cloudflare Pages URL and shared `APP_ACCESS_CODE`; never share `INFINITY_API_TOKEN`, `SESSION_SECRET`, or `.dev.vars`.
-
-```bash
-git pull --ff-only origin main
+# Fill the four secret values in .dev.vars; do not commit this file.
 npm install
+npm run build:appscript
+npm test
 npm run check
 npm run build
-npx wrangler pages deploy dist --project-name infinity-operations
+npm run dev
 ```
 
-For local end-to-end testing with Pages Functions and `.dev.vars`:
+Open `http://localhost:3000`. `npm run start` serves the built app at `http://localhost:8788`.
+
+If Astro’s background dev server fails on your Mac, use the foreground command above and keep that Terminal window open. Do not use `wrangler pages dev`: this repository now targets a Cloudflare **Worker**, not Pages Functions.
+
+## Required environment variables
+
+Copy `.dev.vars.example` and set these only in `.dev.vars` locally and Cloudflare Worker secrets in production:
+
+| Name | Required | Purpose |
+| --- | --- | --- |
+| `APPS_SCRIPT_API_URL` | Yes | Existing deployed Apps Script `/exec` URL |
+| `INFINITY_API_TOKEN` | Yes | Token checked by Apps Script |
+| `APP_ACCESS_CODE` | Yes initially | Manager fallback sign-in code |
+| `SESSION_SECRET` | Yes | New long random session-signing secret |
+| `INFINITY_USE_MOCKS` | No | Keep `false` outside tests |
+| `INFINITY_READ_CACHE_SECONDS` | No | Read cache TTL; `30` default |
+| `INFINITY_DISABLE_SHARED_LOGIN` | No | Set `true` only after a manager login has been tested |
+
+Rotate any secret that was pasted into chat or a screenshot. Do not put secret values in GitHub, the Sheet, or frontend code.
+
+## Apps Script rollout
+
+The full generated script is `apps-script/Code.gs`. It was assembled from the supplied master source plus this release’s add-ons.
+
+1. In the bound Apps Script project, create a versioned backup.
+2. Replace the contents of its `Code.gs` with the complete repository `apps-script/Code.gs`. Do not append it to the old source, or duplicate function names will break the project.
+3. Save, then run `setupInfinityUserDirectory()` only if you want individual Manager/Editor accounts. It creates and hides the `USERS` tab; it does not reset video data.
+4. Deploy a new version of the existing web app, keeping the current execute/access settings and `/exec` URL.
+5. Test one manager workflow and one editor account before setting `INFINITY_DISABLE_SHARED_LOGIN=true`.
+
+Do not run `setupAllInfinityOperations()` for this release. It is a first-time/major-repair setup routine, not the normal deployment path.
+
+### Create individual users
+
+Generate a password row locally; it prints the password once and produces a row for the `USERS` tab:
 
 ```bash
-npm run build
-npx wrangler pages dev dist --port 8790
+node scripts/create-user.js harsh editor "Harsh"
 ```
 
-### Installable app and device alerts
+Paste the generated tab-separated row into `USERS`. Repeat for each exact editor/manager name. The script stores only a PBKDF2 password hash plus salt in the Sheet; it does not create or reveal arbitrary passwords later.
 
-- Install from the header **Install** button on Android/desktop Chromium. On iPhone, use Safari **Share → Add to Home Screen**.
-- Open the bell and press **Enable** once on every phone or computer that should receive alerts.
-- While the app is visible, it performs a forced fresh check about every 60 seconds for QC, Changes, blockers, execution errors, editor reassignment, RAW/FINAL readiness, and stage movement.
-- The first successful check creates a baseline and intentionally does not flood the device with historical alerts.
-- The service worker never caches API, session, HTML, or Google Sheet responses. It caches only static UI assets.
-- Guaranteed push while the PWA is fully closed is not included. That requires persistent push subscriptions plus a server-side event sender.
+## Daily MIS and Instagram
 
----
+The MIS is deliberately detailed, but it remains factual: missing metrics appear as “Not recorded”, activity logs show requested UI actions rather than claiming completed work, and manual Instagram data is not invented.
 
-## 🛡️ Safe Rollback Instructions
+- Default code schedule is 20:00 Asia/Kolkata. An existing `CONFIG!MIS_SEND_HOUR` value overrides it; change that cell to `20` before enabling the schedule.
+- Use **Save & Send Test** first, verify recipients and report contents, then enable the daily schedule. Apps Script triggers run in the selected hour window, not at an exact minute.
+- Instagram publication and page metrics are manual until real platform API credentials exist. One video can have multiple distribution rows/channels; do not equate an Instagram post with global video `Uploaded` status.
 
-If a rollback is required at any time:
-1. In Cloudflare Dashboard, navigate to **Workers & Pages → infinity-operations → Deployments**.
-2. Locate the previous stable deployment.
-3. Click the three dots `...` next to the deployment and select **Rollback to this deployment**.
-4. To roll back git commits locally:
-   ```bash
-   git revert <commit-hash>
-   git push origin main
-   ```
+## Cloudflare deployment
+
+This is a Cloudflare Worker deployment. After the Apps Script rollout is verified, configure the environment variables in **Workers & Pages → infinity-operations → Settings → Variables and Secrets**, then deploy:
+
+```bash
+npx wrangler login
+npm run build
+npx wrangler deploy
+```
+
+After deployment, open `/api/health`: it should report `version: "operations-v4"`. That endpoint only confirms Worker configuration; test a real read/action to validate the upstream Apps Script connection.
+
+## Validation run for this branch
+
+```text
+npm run build:appscript
+npm test                  # 31 passing tests
+npm run check             # 0 errors, 0 warnings, 0 hints
+npm run build             # successful Cloudflare Worker build
+```
+
+The sandbox could not start a browser preview because its network-interface probe fails, so visual browser testing and live deployment are still manual rollout steps.

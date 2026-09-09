@@ -204,7 +204,7 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'snapshot', resource: 'videos', refresh: Boolean(forceRefresh) })
+          body: JSON.stringify({ action: 'videos', limit:2000, refresh: Boolean(forceRefresh) })
         });
 
         const data = await res.json().catch(() => ({}));
@@ -265,6 +265,9 @@ import VideoDetailDrawer from '../components/VideoDetailDrawer.astro';
       return str === '' ? '—' : str;
     }
 
+    window.addEventListener('infinity:video-updated', event => {
+      normalizeAndStoreVideos(allVideos.map(v => v.id === event.detail.videoId ? {...v.rawRecord,...event.detail} : v.rawRecord));
+    });
     function normalizeAndStoreVideos(rawList) {
       if (!Array.isArray(rawList)) {
         allVideos = [];
