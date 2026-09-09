@@ -162,22 +162,30 @@ function buildDailyCampaignMisData_(ss) {
 
   const activity = opsActivity_(ss);
   const channels = opsChannels_(ss);
-  const workload = Object.create(null);
-  rows.forEach(row => {
-    const editor = String(get(row,'Editor') || 'Unassigned');
-    const status = String(get(row,'Production Status') || 'Unassigned');
-    if (!workload[editor]) workload[editor] = {editor, editing:0, changes:0, qc:0, approved:0};
-    if(status==='Editing') workload[editor].editing++;
-    if(status==='Changes') workload[editor].changes++;
-    if(status==='QC Pending') workload[editor].qc++;
-    if(status==='Approved') workload[editor].approved++;
-  });
   const exceptions = rows.filter(row => ['QC Pending','Changes'].includes(String(get(row,'Production Status'))) || String(get(row,'SLA Status')).toLowerCase().includes('overdue') || get(row,'Blocker')).map(row=>({
-    videoId:get(row,'Video ID'), editor:get(row,'Editor'), status:get(row,'Production Status'),
+    videoId:get(row,'Video ID'), status:get(row,'Production Status'),
     notes:get(row,'QC Change Notes'), blocker:get(row,'Blocker'), due:get(row,'Due At') instanceof Date ? Utilities.formatDate(get(row,'Due At'),tz,'dd MMM HH:mm') : get(row,'Due At')
   }));
+  // The management email reports manager-facing work evidence, not internal
+  // staffing. A record is included when there was activity today, a stage move
+  // today, or an upload-stage completion today.
+  const activeVideoIds = new Set((activity.events || []).map(event => String(event.videoId || '')).filter(Boolean));
+  const managerAssets = rows.filter(row => {
+    const id = String(get(row,'Video ID') || '');
+    return activeVideoIds.has(id) || misDateKey_(get(row,'Stage Updated At'),tz) === todayKey ||
+      (String(get(row,'Production Status')) === 'Uploaded' && misDateKey_(get(row,'Stage Updated At'),tz) === todayKey);
+  }).map(row => ({
+    videoId: get(row,'Video ID'),
+    title: get(row,'Title / Script Hook') || get(row,'Script Hook') || get(row,'Title') || '',
+    status: get(row,'Production Status'),
+    rawFolderUrl: apiFolderUrl_(get(row,'RAW Folder ID')),
+    finalFolderUrl: apiFolderUrl_(get(row,'FINAL Folder ID')),
+    rawFileUrl: get(row,'Raw File URL'),
+    finalFileUrl: get(row,'Final File URL'),
+    postUrl: get(row,'Post URL')
+  }));
   return {
-    activity, channels, workload:Object.values(workload), exceptions,
+    activity, channels, managerAssets, exceptions,
     attentionUnique: rows.filter(row=>String(get(row,'SLA Status')).toLowerCase().includes('overdue') || String(get(row,'Blocker') || '').trim()).length,
     generatedAt: Utilities.formatDate(today, tz, 'dd MMM yyyy, hh:mm a'),
     dateLabel: Utilities.formatDate(today, tz, 'dd MMM yyyy'),
