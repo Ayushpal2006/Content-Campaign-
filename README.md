@@ -21,6 +21,19 @@ Browser → Cloudflare Worker → Google Apps Script → Google Sheet / Drive
 
 Secrets stay in Cloudflare/local `.dev.vars`; browser code never receives the Apps Script token.
 
+## Supabase v2 preview
+
+`/v2` is the clean replacement path. It uses Supabase as the operational source of truth, so QC, revision notes and editor work do not wait for Google Sheets or Apps Script. The existing routes remain unchanged while v2 is tested.
+
+Set only these browser-safe values in `.dev.vars` for the v2 preview:
+
+```text
+PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key
+```
+
+Never add a Supabase service-role/secret key to browser code or a `PUBLIC_` variable. Create the first email/password user in Supabase Auth; on first sign-in, v2 securely provisions that account as the one initial manager. After that, manager/editor provisioning must be manager-controlled.
+
 ## Local run
 
 Use a fresh folder if your earlier checkout has uncommitted changes:
