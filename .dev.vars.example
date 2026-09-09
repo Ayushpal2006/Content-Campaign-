@@ -6,3 +6,7 @@ SESSION_SECRET=
 INFINITY_USE_MOCKS=false
 # Read-only API responses are cached at the Cloudflare edge for this many seconds (0 disables cache).
 INFINITY_READ_CACHE_SECONDS=30
+
+# Infinity Operations v2 public client configuration
+PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key
