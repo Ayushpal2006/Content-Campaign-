@@ -927,12 +927,16 @@
 
   function submitManagerQcApprove() {
     const notes = document.getElementById('drawer-qc-notes')?.value.trim() || '';
-    return runQueuedManagerAction('qc_approve', { notes }, 'QC approved. Video is ready for publishing.', {
+    // QC approval changes Sheet fields only. It does not create folders or scan
+    // Drive, so sending it through the minute-based durable worker made a fast
+    // manager decision appear delayed. Keep folder creation queued, but apply
+    // this lightweight decision directly and return its authoritative response.
+    return runManagerAction('qc_approve', { notes }, 'QC approved. Video is ready for publishing.', {
       buttonId: 'qc-approve-btn',
       pendingLabel: 'Approving QC…',
       successLabel: 'QC Approved ✓',
       progressTitle: 'Saving QC approval…',
-      estimateText: 'Usually completes in 5–20 seconds. The button stays locked to prevent duplicate approvals.'
+      estimateText: 'Saving the QC decision now. Other videos remain available while this one is saved.'
     });
   }
 

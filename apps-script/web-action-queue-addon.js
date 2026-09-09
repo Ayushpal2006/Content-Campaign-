@@ -1,7 +1,9 @@
 /** Infinity Operations: durable web action queue (Sheet-backed, no new database). */
 var WEB_JOB_SHEET_ = 'WEB JOBS';
 var WEB_JOB_HEADERS_ = ['Job ID','Request ID','Video ID','Action','Payload JSON','Status','Attempt Count','Max Attempts','Created At','Started At','Finished At','Next Attempt At','Last Error','Result JSON'];
-var WEB_JOB_ALLOWED_ = { approve_script: true, qc_approve: true };
+// Drive folder preparation is slow and belongs in the durable queue. QC is a
+// lightweight Sheet-only decision and is handled synchronously by apiQcDecision_.
+var WEB_JOB_ALLOWED_ = { approve_script: true };
 
 function webJobSheet_(ss) {
   var sh = ss.getSheetByName(WEB_JOB_SHEET_);
@@ -118,7 +120,6 @@ function processInfinityWebJobs_() {
       var body = Object.assign({}, payload, { videoId: claim.videoId, requestId: claim.requestId });
       var result;
       if (claim.action === 'approve_script') result = apiApproveScript_(ss, body);
-      else if (claim.action === 'qc_approve') result = apiQcDecision_(ss, body, 'Approved');
       else throw new Error('Unsupported queued action: ' + claim.action);
       finishWebJob_(sh, claim.row, 'Completed', '', result);
     } catch (err) {

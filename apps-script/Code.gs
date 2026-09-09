@@ -6959,22 +6959,30 @@ function buildDailyCampaignMisData_(ss) {
 
   const activity = opsActivity_(ss);
   const channels = opsChannels_(ss);
-  const workload = Object.create(null);
-  rows.forEach(row => {
-    const editor = String(get(row,'Editor') || 'Unassigned');
-    const status = String(get(row,'Production Status') || 'Unassigned');
-    if (!workload[editor]) workload[editor] = {editor, editing:0, changes:0, qc:0, approved:0};
-    if(status==='Editing') workload[editor].editing++;
-    if(status==='Changes') workload[editor].changes++;
-    if(status==='QC Pending') workload[editor].qc++;
-    if(status==='Approved') workload[editor].approved++;
-  });
   const exceptions = rows.filter(row => ['QC Pending','Changes'].includes(String(get(row,'Production Status'))) || String(get(row,'SLA Status')).toLowerCase().includes('overdue') || get(row,'Blocker')).map(row=>({
-    videoId:get(row,'Video ID'), editor:get(row,'Editor'), status:get(row,'Production Status'),
+    videoId:get(row,'Video ID'), status:get(row,'Production Status'),
     notes:get(row,'QC Change Notes'), blocker:get(row,'Blocker'), due:get(row,'Due At') instanceof Date ? Utilities.formatDate(get(row,'Due At'),tz,'dd MMM HH:mm') : get(row,'Due At')
   }));
+  // The management email reports manager-facing work evidence, not internal
+  // staffing. A record is included when there was activity today, a stage move
+  // today, or an upload-stage completion today.
+  const activeVideoIds = new Set((activity.events || []).map(event => String(event.videoId || '')).filter(Boolean));
+  const managerAssets = rows.filter(row => {
+    const id = String(get(row,'Video ID') || '');
+    return activeVideoIds.has(id) || misDateKey_(get(row,'Stage Updated At'),tz) === todayKey ||
+      (String(get(row,'Production Status')) === 'Uploaded' && misDateKey_(get(row,'Stage Updated At'),tz) === todayKey);
+  }).map(row => ({
+    videoId: get(row,'Video ID'),
+    title: get(row,'Title / Script Hook') || get(row,'Script Hook') || get(row,'Title') || '',
+    status: get(row,'Production Status'),
+    rawFolderUrl: apiFolderUrl_(get(row,'RAW Folder ID')),
+    finalFolderUrl: apiFolderUrl_(get(row,'FINAL Folder ID')),
+    rawFileUrl: get(row,'Raw File URL'),
+    finalFileUrl: get(row,'Final File URL'),
+    postUrl: get(row,'Post URL')
+  }));
   return {
-    activity, channels, workload:Object.values(workload), exceptions,
+    activity, channels, managerAssets, exceptions,
     attentionUnique: rows.filter(row=>String(get(row,'SLA Status')).toLowerCase().includes('overdue') || String(get(row,'Blocker') || '').trim()).length,
     generatedAt: Utilities.formatDate(today, tz, 'dd MMM yyyy, hh:mm a'),
     dateLabel: Utilities.formatDate(today, tz, 'dd MMM yyyy'),
@@ -7112,7 +7120,9 @@ function apiSetupMisTrigger_() {
 /** Infinity Operations: durable web action queue (Sheet-backed, no new database). */
 var WEB_JOB_SHEET_ = 'WEB JOBS';
 var WEB_JOB_HEADERS_ = ['Job ID','Request ID','Video ID','Action','Payload JSON','Status','Attempt Count','Max Attempts','Created At','Started At','Finished At','Next Attempt At','Last Error','Result JSON'];
-var WEB_JOB_ALLOWED_ = { approve_script: true, qc_approve: true };
+// Drive folder preparation is slow and belongs in the durable queue. QC is a
+// lightweight Sheet-only decision and is handled synchronously by apiQcDecision_.
+var WEB_JOB_ALLOWED_ = { approve_script: true };
 
 function webJobSheet_(ss) {
   var sh = ss.getSheetByName(WEB_JOB_SHEET_);
@@ -7229,7 +7239,6 @@ function processInfinityWebJobs_() {
       var body = Object.assign({}, payload, { videoId: claim.videoId, requestId: claim.requestId });
       var result;
       if (claim.action === 'approve_script') result = apiApproveScript_(ss, body);
-      else if (claim.action === 'qc_approve') result = apiQcDecision_(ss, body, 'Approved');
       else throw new Error('Unsupported queued action: ' + claim.action);
       finishWebJob_(sh, claim.row, 'Completed', '', result);
     } catch (err) {
@@ -7524,17 +7533,16 @@ function misDetailedSections_(data) {
   const a=data.activity || {events:[],videoCount:0,eventCount:0,day:''};
   const ch=data.channels || {accounts:[],posts:[],metrics:[]};
   const todayPosts=ch.posts.filter(p=>p.status==='Uploaded' && opsDay_(p.uploadedAt)===a.day);
-  const byAccount=ch.accounts.map(account=>{
-    const posts=todayPosts.filter(p=>[account.accountId,account.handle].includes(p.account));
-    const metric=ch.metrics.find(m=>m.accountId===account.accountId && m.date===a.day);
-    return [account.handle,posts.length,metric?metric.views:null,metric?metric.reach:null,metric?'Manual / '+metric.date:'Awaiting manual observation'];
-  });
+  const assetLink=(url,label)=>{
+    const value=String(url || '').trim();
+    return /^https:\/\/[^\s]+$/i.test(value) ? `<a href="${esc(value)}" style="color:#be185d;font-weight:700">${esc(label)}</a>` : 'Not recorded';
+  };
+  const assetTable=(rows)=>`<table width="100%" cellspacing="0" style="border-collapse:collapse;font-size:11px"><thead><tr><th align="left" style="padding:7px;background:#f1f5f9">Video</th><th align="left" style="padding:7px;background:#f1f5f9">Stage</th><th align="left" style="padding:7px;background:#f1f5f9">RAW</th><th align="left" style="padding:7px;background:#f1f5f9">FINAL</th><th align="left" style="padding:7px;background:#f1f5f9">Publication</th></tr></thead><tbody>${rows.length?rows.map(v=>`<tr><td style="padding:7px;border-bottom:1px solid #e2e8f0;vertical-align:top"><strong>${esc(v.videoId)}</strong>${v.title?`<br><span style="color:#64748b">${esc(v.title)}</span>`:''}</td><td style="padding:7px;border-bottom:1px solid #e2e8f0">${esc(v.status || 'Not recorded')}</td><td style="padding:7px;border-bottom:1px solid #e2e8f0">${assetLink(v.rawFolderUrl,'RAW folder')}<br>${assetLink(v.rawFileUrl,'RAW file')}</td><td style="padding:7px;border-bottom:1px solid #e2e8f0">${assetLink(v.finalFolderUrl,'FINAL folder')}<br>${assetLink(v.finalFileUrl,'FINAL file')}</td><td style="padding:7px;border-bottom:1px solid #e2e8f0">${assetLink(v.postUrl,'Open post')}</td></tr>`).join(''):`<tr><td colspan="5" style="padding:10px">No manager-facing asset evidence was recorded; RAW and FINAL links are Not recorded.</td></tr>`}</tbody></table>`;
   return section('01 · Operational execution and evidence basis',`<p>This memorandum consolidates production-stage inventory, timestamped operational activity, quality-control disposition and distribution evidence for the India reporting date. The execution register contains <strong>${a.eventCount} recorded events</strong> involving <strong>${a.videoCount} distinct videos</strong>. These measures describe observed activity; repeated actions, retries and failures do not constitute additional completed deliverables.</p><p>Scheduling and execution are reported separately. A zero in the scheduled cohort means no matching publish-date records were identified; it does not establish that no work occurred. Outstanding inventory remains visible regardless of the planned publication date.</p>`)
-    +section('02 · Editorial capacity and review handoffs',table(['Editor','Editing','Revisions','Awaiting QC','Approved'],(data.workload||[]).map(w=>[w.editor,w.editing,w.changes,w.qc,w.approved]))+'<p>Awaiting-QC inventory represents a manager review dependency. Revision inventory requires editor action. Approved inventory is eligible for distribution but is not evidence of a published post.</p>')
-    +section('03 · Quality assurance and exception register',`<p>${(data.exceptions||[]).length} records meet the QC, revision, overdue or blocker criteria. The following register shows the first 100; remaining records remain available in All Videos.</p>`+table(['Video','Editor','Stage','Revision / blocker','Due'],(data.exceptions||[]).slice(0,100).map(v=>[v.videoId,v.editor,v.status,[v.notes,v.blocker].filter(Boolean).join(' | '),v.due])))
-    +section('04 · Channel distribution and audience observation',`<p>${todayPosts.length} publication records have a publication timestamp within this reporting date, covering ${new Set(todayPosts.map(p=>p.videoId)).size} unique videos. One video may be distributed through multiple accounts; publication records and unique-video counts therefore use different denominators. Views and reach below are manually supplied page-level observations. Missing observations remain unreported and are not replaced with zero. Reach is not summed across accounts because audiences may overlap.</p>`+table(['Channel','Posts today','Views','Reach','Evidence'],byAccount))
-    +section('05 · Publication evidence register',table(['Video','Account','Post URL'],todayPosts.map(p=>[p.videoId,p.account,p.url])))
-    +section('06 · Recorded operational activity appendix',`<p>Latest ${Math.min(200,a.events.length)} of ${a.events.length} recorded events today. Status and errors are retained. System checks and button requests, where recorded, must not be interpreted as successful production outcomes.</p>`+table(['Time / action','Video / editor','Outcome','Recorded detail'],a.events.slice(0,200).map(e=>[e.at+' / '+e.action,e.videoId+' / '+e.editor,e.status,[e.details,e.error].filter(Boolean).join(' | ')])))
-    +section('07 · Measurement definitions and reporting limitations','<p><strong>Planned:</strong> videos with today’s publish date. <strong>Active moves:</strong> videos whose latest stage timestamp falls today; historical intermediate transitions require the event register. <strong>Uploaded today:</strong> videos currently marked Uploaded with a stage timestamp today. <strong>Publication evidence:</strong> separate distribution rows with a recorded post URL and upload timestamp. <strong>Audience observation:</strong> manual page-level inputs, without an authenticated platform API connection. <strong>Projection:</strong> recent recorded throughput, constrained by remaining inventory; the stretch scenario is an inventory scenario rather than a forecast commitment.</p><p>All timestamps are interpreted in Asia/Kolkata. Historical clicks not previously logged cannot be reconstructed. Records entered after the scheduled send appear in the next generated preview; an already-sent email is not retrospectively modified.</p>');
+    +section('02 · Manager-facing RAW and FINAL asset register',`<p>This register identifies today’s recorded work and provides direct source/final-folder evidence for management review. Internal staffing details are intentionally excluded.</p>`+assetTable(data.managerAssets || []))
+    +section('03 · Quality assurance and exception register',`<p>${(data.exceptions||[]).length} records meet the QC, revision, overdue or blocker criteria. The following register shows the first 100; remaining records remain available in All Videos.</p>`+table(['Video','Stage','Revision / blocker','Due'],(data.exceptions||[]).slice(0,100).map(v=>[v.videoId,v.status,[v.notes,v.blocker].filter(Boolean).join(' | '),v.due])))
+    +section('04 · Publication evidence register',`<p>${todayPosts.length} publication records have a timestamp within this reporting date, covering ${new Set(todayPosts.map(p=>p.videoId)).size} unique videos. Channel-level reporting and platform metrics remain out of this manager email until channel operations are activated.</p>`+table(['Video','Post URL'],todayPosts.map(p=>[p.videoId,p.url])))
+    +section('05 · Recorded operational activity appendix',`<p>Latest ${Math.min(200,a.events.length)} of ${a.events.length} recorded events today. Status and errors are retained. System checks and button requests, where recorded, must not be interpreted as successful production outcomes.</p>`+table(['Time / action','Video','Outcome','Recorded detail'],a.events.slice(0,200).map(e=>[e.at+' / '+e.action,e.videoId,e.status,[e.details,e.error].filter(Boolean).join(' | ')])))
+    +section('06 · Measurement definitions and reporting limitations','<p><strong>Planned:</strong> videos with today’s publish date. <strong>Active moves:</strong> videos whose latest stage timestamp falls today; historical intermediate transitions require the event register. <strong>Uploaded today:</strong> videos currently marked Uploaded with a stage timestamp today. <strong>Publication evidence:</strong> separate distribution rows with a recorded post URL and upload timestamp. The manager email excludes internal editor staffing and channel-level analysis. <strong>Projection:</strong> recent recorded throughput, constrained by remaining inventory; the stretch scenario is an inventory scenario rather than a forecast commitment.</p><p>All timestamps are interpreted in Asia/Kolkata. Historical clicks not previously logged cannot be reconstructed. Records entered after the scheduled send appear in the next generated preview; an already-sent email is not retrospectively modified.</p>');
 }
 
