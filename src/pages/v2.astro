@@ -1,5 +1,7 @@
 ---
 const title = 'Infinity Operations v2';
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
+const supabasePublishableKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
 ---
 <!doctype html>
 <html lang="en">
@@ -28,11 +30,13 @@ const title = 'Infinity Operations v2';
       <main class="main"><div class="top"><div><h1 id="heading">Manager dashboard</h1><p id="identity" class="sub"></p></div><button id="refresh" class="btn">Refresh</button></div><div id="error" class="notice hidden"></div><div id="content"></div></main>
     </div>
     <aside id="drawer" class="drawer"><div class="drawer-head"><div><span class="label">Video details</span><h2 id="drawer-title">—</h2></div><button class="btn" id="close">Close</button></div><div id="drawer-content"></div></aside>
-    <script>
+    <script is:inline define:vars={{ supabaseUrl, supabasePublishableKey }}>
+      window.INFINITY_V2_CONFIG = { url: supabaseUrl, key: supabasePublishableKey };
+    </script>
+    <script is:inline type="module">
       // @ts-nocheck
-      import { createClient } from '@supabase/supabase-js';
-      const url = import.meta.env.PUBLIC_SUPABASE_URL;
-      const key = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.116.0';
+      const { url, key } = window.INFINITY_V2_CONFIG;
       const el = (id) => document.getElementById(id);
       const esc = (value='') => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       let db, profile, videos = [], people = [], activeTab = 'dashboard', currentVideo;
