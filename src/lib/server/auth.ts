@@ -1,9 +1,15 @@
 // Helper for HMAC-SHA256 session signature & verification using Web Crypto API
 
+export interface SessionIdentity {
+  username: string;
+  role: 'manager' | 'editor';
+  editor: string;
+}
 interface SessionPayload {
   iat: number;
   exp: number;
   sid: string;
+  identity?: SessionIdentity;
 }
 
 export function getSessionSecret(env?: Record<string, string | undefined>): string {
@@ -85,13 +91,15 @@ function isRequestSecure(request?: Request): boolean {
 export async function createSessionCookie(
   secret: string,
   request?: Request,
-  maxAgeSeconds = 7 * 24 * 3600
+  maxAgeSeconds = 7 * 24 * 3600,
+  identity: SessionIdentity = {username:'manager',role:'manager',editor:''}
 ): Promise<{ cookie: string; token: string }> {
   const now = Math.floor(Date.now() / 1000);
   const payload: SessionPayload = {
     iat: now,
     exp: now + maxAgeSeconds,
     sid: crypto.randomUUID(),
+    identity,
   };
 
   const payloadStr = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
@@ -104,32 +112,39 @@ export async function createSessionCookie(
 }
 
 export async function verifySessionCookie(request: Request, secret: string): Promise<boolean> {
-  if (!secret) return false;
-  const cookieHeader = request.headers.get('Cookie');
-  if (!cookieHeader) return false;
+  return Boolean(await readSessionIdentity(request,secret));
+}
 
-  const cookies = parseCookies(cookieHeader);
+export async function readSessionIdentity(request: Request, secret: string): Promise<SessionIdentity | null> {
+  if (!secret) return null;
+  const cookieHeader = request.headers.get('Cookie');
+  if (!cookieHeader) return null;
+
+  let cookies: Record<string,string>;
+  try { cookies = parseCookies(cookieHeader); } catch { return null; }
   const token = cookies['infinity_session'];
-  if (!token) return false;
+  if (!token) return null;
 
   const parts = token.split('.');
-  if (parts.length !== 2) return false;
+  if (parts.length !== 2) return null;
 
   const [payloadStr, signature] = parts;
   try {
     const expectedSig = await signHmac(payloadStr, secret);
-    if (signature !== expectedSig) return false;
+    if (signature !== expectedSig) return null;
 
     const payloadBytes = base64UrlDecode(payloadStr);
     const payload: SessionPayload = JSON.parse(new TextDecoder().decode(payloadBytes));
 
     const now = Math.floor(Date.now() / 1000);
     if (!payload.exp || payload.exp < now) {
-      return false;
+      return null;
     }
-    return true;
+    const identity=payload.identity;
+    if(!identity || !['manager','editor'].includes(identity.role) || !identity.username || (identity.role==='editor' && !identity.editor)) return null;
+    return identity;
   } catch {
-    return false;
+    return null;
   }
 }
 

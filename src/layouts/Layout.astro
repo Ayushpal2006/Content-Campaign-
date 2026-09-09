@@ -3,7 +3,7 @@ import '../styles/global.css';
 
 interface Props {
   title?: string;
-  activeTab?: 'dashboard' | 'today' | 'videos' | 'my-work' | 'editors' | 'mis' | 'jobs' | 'settings' | 'login';
+  activeTab?: 'dashboard' | 'today' | 'videos' | 'my-work' | 'editors' | 'mis' | 'jobs' | 'settings' | 'login' | 'channels';
 }
 
 const { title = 'Infinity Operations', activeTab = 'dashboard' } = Astro.props;
@@ -50,6 +50,7 @@ const isLoginPage = activeTab === 'login';
           </div>
 
           <nav class="sidebar-nav">
+            <a href="/channels" class={`nav-link ${activeTab === 'channels' ? 'active' : ''}`}><span>Channels &amp; Publishing</span></a>
             <a href="/" class={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="7" height="7" rx="1.5" />
@@ -283,6 +284,7 @@ const isLoginPage = activeTab === 'login';
             headers: { Accept: 'application/json' }
           });
         } finally {
+          sessionStorage.clear();
           if (!isLoginRoute(window.location.pathname)) {
             window.location.replace('/login');
           }
@@ -311,6 +313,15 @@ const isLoginPage = activeTab === 'login';
           .then(data => {
             if (sessionChecked) return;
             sessionChecked = true;
+            if(data?.authenticated && data.identity) {
+              window.infinityIdentity=data.identity;
+              window.dispatchEvent(new CustomEvent('infinity:identity',{detail:data.identity}));
+              if(data.identity.role==='editor') {
+                document.querySelectorAll('.sidebar-nav a').forEach(link=>{link.hidden=!['/my-work','/videos'].includes(link.getAttribute('href'));});
+                document.getElementById('notification-bell-btn')?.setAttribute('hidden','');
+                if(!['/my-work','/my-work/','/videos','/videos/'].includes(window.location.pathname)) window.location.replace('/my-work');
+              }
+            }
             if (!data || !data.authenticated) {
               const currentPath = window.location.pathname + window.location.search;
               if (!isLoginRoute(window.location.pathname)) {
@@ -322,5 +333,6 @@ const isLoginPage = activeTab === 'login';
       })();
     </script>
     <script is:inline src="/notification-engine.js" defer></script>
+    <script is:inline src="/activity-log.js" defer></script>
   </body>
 </html>

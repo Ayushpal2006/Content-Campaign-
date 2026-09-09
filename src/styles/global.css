@@ -444,7 +444,18 @@ html, body {
 .today-mission h2 { font-size: 1rem; margin-top: .15rem; }
 .today-mission p { font-size: .75rem; margin-top: .2rem; opacity: .82; }
 .today-status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: .45rem; }
-.today-status-item { text-align: center; padding: .55rem .25rem; border-radius: .65rem; background: rgb(255 255 255 / .11); border: 1px solid rgb(255 255 255 / .14); }
+.today-status-item, .today-status-chip { display: flex; flex-direction: column; gap: .3rem; min-width: 0; text-align: center; padding: .55rem .25rem; border-radius: .65rem; background: rgb(255 255 255 / .11); border: 1px solid rgb(255 255 255 / .14); }
+.today-status-chip .chip-label { font-size: .7rem; line-height: 1.35; }
+.today-status-chip .chip-val { font-size: 1.25rem; color: white !important; }
+.revision-note { margin-top: .4rem; white-space: normal; color: #9f1239; font-size: .8rem; line-height: 1.45; }
+.activity-list { display: grid; gap: .6rem; padding: 1rem; }
+.activity-entry { border: 1px solid var(--border-subtle); border-radius: .75rem; padding: .8rem; overflow-wrap: anywhere; }
+.activity-entry small { color: var(--text-muted); display: block; margin-top: .25rem; }
+@media (max-width: 720px) {
+  button, .btn, select, input { min-height: 44px; }
+  .card-header { flex-wrap: wrap; gap: .75rem; }
+  .today-mission-copy { min-width: 0; }
+}
 .today-status-item strong { display: block; font-size: 1.05rem; }
 .today-status-item span { display: block; font-size: .65rem; opacity: .78; }
 .today-status-item.is-complete { background: rgb(16 185 129 / .3); }

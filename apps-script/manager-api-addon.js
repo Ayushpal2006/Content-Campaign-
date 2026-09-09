@@ -68,6 +68,7 @@ function repairInfinityVideoDropdowns() {
 }
 
 function apiCachedRead_(action, body, producer) {
+  if (body && body.refresh === true) return producer();
   const props = PropertiesService.getScriptProperties();
   const epoch = props.getProperty('INFINITY_API_CACHE_EPOCH') || '0';
   const identity = JSON.stringify({
@@ -104,7 +105,7 @@ function apiDispatchUncachedRead_(ss, action, body) {
       return {
         dashboard: apiManagerDashboard_(context),
         editorLoad: apiManagerEditorLoad_(ss),
-        videos: apiListVideosFromContext_(context, body)
+        videos: {items:context.items.slice().reverse(),total:context.items.length,filtered:context.items.length,limit:context.items.length}
       };
     }
     case 'dashboard':
@@ -352,11 +353,12 @@ function apiAssignEditor_(ss, body) {
   return { assigned: true, video };
 }
 
-function apiDetectFinal_(ss, videoId) {
+function apiDetectFinal_(ss, videoId, expectedEditor) {
   const id = apiManagerRequired_(videoId, 'videoId');
   const result = apiManagerLock_(() => {
     const found = apiManagerFind_(ss, id);
     const before = apiGetVideo_(ss, id);
+    if(expectedEditor && String(before.editor).trim().toLowerCase()!==String(expectedEditor).trim().toLowerCase()) throw apiError_('ROLE_FORBIDDEN','This video is no longer assigned to you.');
     if (!['Editing','Changes'].includes(before.productionStatus)) {
       throw apiError_('FINAL_NOT_ALLOWED', 'FINAL detection is allowed only during Editing or Changes.');
     }
@@ -392,6 +394,8 @@ function apiQcDecision_(ss, body, outcome) {
   apiManagerLock_(() => {
     const found = apiManagerFind_(ss, videoId);
     const current = apiGetVideo_(ss, videoId);
+    const expectedStatus=outcome==='Approved'?'Approved':'Changes';
+    if(current.productionStatus===expectedStatus && current.qcStatus===outcome && String(current.qcChangeNotes || '')===notes) return;
     if (current.productionStatus !== 'QC Pending') {
       throw apiError_('QC_NOT_PENDING', 'QC decision requires QC Pending status.');
     }

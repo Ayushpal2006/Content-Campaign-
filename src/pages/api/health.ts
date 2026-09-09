@@ -12,15 +12,23 @@ export const GET: APIRoute = async () => {
     accessCode: Boolean(getAppAccessCode(runtimeEnv)),
     sessionSecret: Boolean(getSessionSecret(runtimeEnv)),
   };
-  const healthy = Boolean(configured.accessCode && configured.sessionSecret);
+  // This route can only verify edge configuration. It deliberately does not
+  // claim that Apps Script is reachable without making a real upstream call.
+  const healthy = Boolean(
+    configured.appsScriptUrl &&
+    configured.apiToken &&
+    configured.accessCode &&
+    configured.sessionSecret
+  );
 
   return new Response(
     JSON.stringify({
       ok: healthy,
       service: 'Infinity Operations API',
-      version: 'v1',
+      version: 'operations-v4',
       cacheSeconds: Number(getEnv('INFINITY_READ_CACHE_SECONDS') || 30),
       configured,
+      connectivityVerified: false,
       timestamp: new Date().toISOString(),
     }),
     {

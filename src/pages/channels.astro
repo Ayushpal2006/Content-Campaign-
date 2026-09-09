@@ -1,0 +1,88 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="Channels & Publishing" activeTab="channels">
+  <section class="card" style="padding:1.25rem;margin-bottom:1rem;">
+    <h2>Instagram channels</h2>
+    <p>Record where a video was published, then add each page’s views and reach. One video can appear on several channels.</p>
+    <p class="chip chip-blue">Manual tracking</p>
+    <div id="channel-error" class="error-state" hidden></div>
+    <div id="channel-list" class="channel-grid" aria-live="polite">Loading channels…</div>
+  </section>
+  <div class="channel-forms">
+    <form id="post-form" class="card" style="padding:1.25rem;">
+      <h2>Record a published video</h2>
+      <p>Save once for each destination channel. Only QC-approved videos can be recorded.</p>
+      <label class="manager-field">Channel<select name="accountId" class="account-select" required></select></label>
+      <label class="manager-field">Video ID<input name="videoId" placeholder="7/09-0024" required /></label>
+      <label class="manager-field">Instagram post or reel link<input name="url" type="url" required placeholder="https://www.instagram.com/reel/…" /></label>
+      <label class="manager-field">Published at (India time)<input name="uploadedAt" type="datetime-local" required /></label>
+      <button class="btn btn-primary" type="submit">Save publication</button>
+      <p class="form-message" role="status"></p>
+    </form>
+    <form id="metrics-form" class="card" style="padding:1.25rem;">
+      <h2>Update page performance</h2>
+      <p>Enter that day’s page-level observations. Leave unavailable metrics blank. Reach is not added across pages.</p>
+      <label class="manager-field">Channel<select name="accountId" class="account-select" required></select></label>
+      <label class="manager-field">Reporting date<input name="date" type="date" required /></label>
+      <label class="manager-field">Views<input name="views" type="number" min="0" step="1" placeholder="Not recorded" /></label>
+      <label class="manager-field">Reach<input name="reach" type="number" min="0" step="1" placeholder="Not recorded" /></label>
+      <button class="btn btn-primary" type="submit">Save page metrics</button>
+      <p class="form-message" role="status"></p>
+    </form>
+  </div>
+  <section class="card" style="margin-top:1rem;">
+    <div class="card-header"><h2>Publication register</h2></div>
+    <div id="channel-posts" class="activity-list"></div>
+  </section>
+  <script is:inline>
+    const channelEsc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    async function channelApi(action,payload={}) {
+      const res=await fetch('/api/infinity',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...payload})});
+      const raw=await res.json();
+      if(!res.ok || raw.ok===false) throw new Error(raw.error?.message || raw.error || 'Could not save. Please retry.');
+      return raw.result || raw.data || raw;
+    }
+    async function loadChannels() {
+      const error=document.getElementById('channel-error');
+      try {
+        const data=await channelApi('channels',{refresh:true});
+        if(!Array.isArray(data.accounts)) throw new Error('Deploy the updated Apps Script to load channels.');
+        error.hidden=true;
+        document.querySelectorAll('.account-select').forEach(select=>{
+          const prior=select.value;
+          select.innerHTML='<option value="">Choose channel</option>'+data.accounts.map(a=>`<option value="${channelEsc(a.accountId)}">${channelEsc(a.handle)}</option>`).join('');
+          select.value=prior;
+        });
+        document.getElementById('channel-list').innerHTML=data.accounts.map(a=>`<article class="activity-entry"><strong>${channelEsc(a.handle)}</strong><small>${channelEsc(a.platform)} · ${channelEsc(a.status)}</small>${/^https:\/\/www\.instagram\.com\//.test(a.url)?`<a href="${channelEsc(a.url)}" target="_blank" rel="noopener noreferrer">Open profile ↗</a>`:''}<small>Tracker ID: ${channelEsc(a.accountId)}</small></article>`).join('') || 'No channels configured.';
+        document.getElementById('channel-posts').innerHTML=data.posts.map(p=>`<article class="activity-entry"><strong>${channelEsc(p.videoId)} · ${channelEsc(p.account)}</strong><small>${channelEsc(p.status)} · ${channelEsc(p.uploadedAt)}</small>${/^https:\/\/(www\.)?instagram\.com\//.test(p.url)?`<a target="_blank" rel="noopener noreferrer" href="${channelEsc(p.url)}">Open published post ↗</a>`:''}</article>`).join('') || 'No publication records yet. Saving a channel does not mark a video as published.';
+      } catch(e) {error.hidden=false;error.textContent=e.message;document.getElementById('channel-list').textContent='Channel data unavailable.';}
+    }
+    async function saveChannelForm(event,action) {
+      event.preventDefault();
+      const form=event.target, button=form.querySelector('button'),message=form.querySelector('.form-message');
+      if(button.disabled)return;
+      button.disabled=true;message.textContent='Saving…';
+      try {
+        const payload=Object.fromEntries(new FormData(form));
+        if(payload.uploadedAt) payload.uploadedAt=payload.uploadedAt+':00+05:30';
+        await channelApi(action,payload);
+        message.textContent='Saved successfully.';
+        await loadChannels();
+      }catch(error){message.textContent=error.message;}finally{button.disabled=false;}
+    }
+    document.getElementById('post-form').addEventListener('submit',e=>saveChannelForm(e,'save_post'));
+    document.getElementById('metrics-form').addEventListener('submit',e=>saveChannelForm(e,'save_channel_metrics'));
+    document.querySelector('[name=date]').value=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    loadChannels();
+    window.__refreshOperationsData=loadChannels;
+  </script>
+  <style is:global>
+    .channel-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem;margin-top:1rem;}
+    .channel-forms {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;}
+    .channel-forms h2 {font-size:1.1rem;}
+    .channel-forms p {font-size:.85rem;margin:.6rem 0;}
+    .channel-forms .manager-field {margin:1rem 0;}
+    @media(max-width:720px){.channel-forms{grid-template-columns:1fr;}}
+  </style>
+</Layout>

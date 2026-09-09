@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "astro dev --host 0.0.0.0 --port 3000",
     "build": "astro build",
-    "postbuild": "node scripts/fix-pages-config.js",
-    "start": "wrangler pages dev dist --port 8788",
+    "build:appscript": "node scripts/build-appscript.js",
+    "start": "astro preview --host 0.0.0.0 --port 8788",
     "preview": "astro preview --host 0.0.0.0 --port 3000",
     "check": "astro check",
     "lint": "astro check",

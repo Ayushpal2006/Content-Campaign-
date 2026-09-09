@@ -45,6 +45,16 @@ function apiQueueWebAction_(ss, body) {
       }
     }
     var jobId = Utilities.getUuid();
+    if(last>1) {
+      var pendingRows=sh.getRange(2,1,last-1,WEB_JOB_HEADERS_.length).getValues();
+      for(var p=0;p<pendingRows.length;p++) {
+        var pending=pendingRows[p];
+        if(String(pending[2])===videoId && ['Pending','Processing'].indexOf(String(pending[5]))>=0) {
+          if(String(pending[3])!==queuedAction) throw new Error('This video already has a pending action. Check Sync & Retries.');
+          var same=webJobObject_(pending);same.worker=worker;return same;
+        }
+      }
+    }
     var now = new Date();
     sh.appendRow([jobId, requestId, videoId, queuedAction, JSON.stringify(body.payload || {}), 'Pending', 0, 5, now, '', '', now, '', '']);
     return { ok: true, queued: true, jobId: jobId, requestId: requestId, status: 'Pending', attemptCount: 0, maxAttempts: 5, createdAt: now.toISOString(), worker: worker };
@@ -126,6 +136,11 @@ function claimNextWebJob_(sh) {
     var now = new Date();
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i], status = String(r[5]), next = r[11] instanceof Date ? r[11] : new Date(0), attempt = Number(r[6] || 0), max = Number(r[7] || 5);
+      if(status==='Processing' && r[9] instanceof Date && now.getTime()-r[9].getTime()>7*60000) {
+        status=attempt<max?'Pending':'Failed';
+        sh.getRange(i+2,6).setValue(status);
+        sh.getRange(i+2,13).setValue('Worker execution expired; retry scheduled.');
+      }
       if (status === 'Pending' && attempt < max && next <= now) {
         sh.getRange(i + 2, 6, 1, 7).setValues([['Processing', attempt + 1, max, r[8], now, '', r[11]]]);
         SpreadsheetApp.flush();
